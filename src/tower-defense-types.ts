@@ -47,17 +47,23 @@ export interface TowerInstance {
   statusBadgeEl?: HTMLElement;
 }
 
-export type EnemyType = 'scout' | 'warrior' | 'armored' | 'boss';
+export type EnemyType = 'scout' | 'warrior' | 'armored' | 'toxic' | 'boss';
 
 export interface EnemyConfig {
   type: EnemyType;
   name: string;
+  traitLabel: string;
   modelFile: string;
   baseHp: number;
   speed: number;
   rewardSlp: number;
   scale: number;
   colorFilter?: number;
+  isImmuneSlow?: boolean;
+  isImmunePoison?: boolean;
+  armorReduction?: number;
+  regenRate?: number;
+  hasSprint?: boolean;
 }
 
 export interface TDEnemy {
@@ -67,6 +73,7 @@ export interface TDEnemy {
   hp: number;
   maxHp: number;
   speed: number;
+  baseSpeed: number;
   rewardSlp: number;
   pathDistance: number; // Total distance traversed along path
   position: THREE.Vector3;
@@ -78,6 +85,15 @@ export interface TDEnemy {
   poisonTimer: number;
   poisonDmg: number;
   healthBarFill: THREE.Mesh;
+  healthBarGroup: THREE.Group;
+
+  // Personality Traits
+  isImmuneSlow?: boolean;
+  isImmunePoison?: boolean;
+  armorReduction?: number;
+  regenRate?: number;
+  hasSprint?: boolean;
+  isFrenzyActive?: boolean;
 }
 
 export interface TDProjectile {

@@ -661,17 +661,42 @@ body, html {
   margin-bottom: 20px;
 }
 
+.guide-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--accent-aqua);
+  letter-spacing: 0.8px;
+  margin: 12px 0 6px;
+  text-align: left;
+}
+
 .roles-guide {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
   background: rgba(15, 23, 42, 0.6);
   border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 24px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
   text-align: left;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
+}
+
+.roles-guide.enemies-guide {
+  grid-template-columns: 1fr;
+  gap: 5px;
+  max-height: 140px;
+  overflow-y: auto;
+  margin-bottom: 18px;
+  padding-right: 6px;
+}
+
+.roles-guide.enemies-guide .guide-box {
+  padding: 4px 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-gold);
 }
 
 .roles-guide strong {

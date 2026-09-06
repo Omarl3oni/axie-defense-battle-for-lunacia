@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PathSystem } from './path-system';
-import { TowerSpot } from './tower-defense-types';
+import { TowerSpot, EnemyType } from './tower-defense-types';
 
 export class Arena3D {
   public scene: THREE.Scene;
@@ -357,7 +357,12 @@ export class Arena3D {
     return { group, fill };
   }
 
-  public createEnemyMesh(modelFile: string, scale: number, colorFilter?: number): { mesh: THREE.Group; mixer?: THREE.AnimationMixer; healthBarFill: THREE.Mesh } {
+  public createEnemyMesh(
+    modelFile: string,
+    scale: number,
+    colorFilter?: number,
+    enemyType: EnemyType = 'scout'
+  ): { mesh: THREE.Group; mixer?: THREE.AnimationMixer; healthBarFill: THREE.Mesh; healthBarGroup: THREE.Group } {
     const cached = this.modelCache.get(modelFile);
     let group: THREE.Group;
     let mixer: THREE.AnimationMixer | undefined;
@@ -394,28 +399,126 @@ export class Arena3D {
       group.add(s);
     }
 
-    // Overhead 3D Health Bar
+    // High-Visibility Overhead 3D Health Bar & Personality Badge
     const hbGroup = new THREE.Group();
-    hbGroup.position.y = 1.8 * scale;
+    hbGroup.position.y = 1.85 + (0.35 / scale);
 
-    const bgBar = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.4 * scale, 0.2),
-      new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide })
+    const worldWidth = Math.max(2.4, 1.35 * scale);
+    const localWidth = worldWidth / scale;
+    const worldHeight = 0.38;
+    const localHeight = worldHeight / scale;
+
+    // Dark Border Frame
+    const borderBar = new THREE.Mesh(
+      new THREE.PlaneGeometry(localWidth + (0.16 / scale), localHeight + (0.14 / scale)),
+      new THREE.MeshBasicMaterial({ color: 0x070a10, side: THREE.DoubleSide })
     );
-    bgBar.rotation.x = -Math.PI / 4;
+    hbGroup.add(borderBar);
+
+    // Inner Dark Background Bar
+    const bgBar = new THREE.Mesh(
+      new THREE.PlaneGeometry(localWidth, localHeight),
+      new THREE.MeshBasicMaterial({ color: 0x1e293b, side: THREE.DoubleSide })
+    );
+    bgBar.position.z = 0.005 / scale;
     hbGroup.add(bgBar);
 
+    // Dynamic Fill Bar (Left-Anchored so it empties left-to-right)
+    const fillWidth = localWidth - (0.04 / scale);
+    const fillHeight = localHeight - (0.04 / scale);
+    const fillGeom = new THREE.PlaneGeometry(fillWidth, fillHeight);
+    fillGeom.translate(fillWidth / 2, 0, 0);
+
     const fillBar = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.36 * scale, 0.16),
+      fillGeom,
       new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide })
     );
-    fillBar.rotation.x = -Math.PI / 4;
-    fillBar.position.z = 0.01;
+    fillBar.position.set(-fillWidth / 2, 0, 0.01 / scale);
     hbGroup.add(fillBar);
 
+    // Visual Trait Badge
+    const badgeGroup = new THREE.Group();
+    badgeGroup.position.set(0, (localHeight / 2) + (0.24 / scale), 0.02 / scale);
+
+    if (enemyType === 'scout') {
+      // ⚡ Golden Diamond Runner Emblem
+      const diamond = new THREE.Mesh(
+        new THREE.ConeGeometry(0.18 / scale, 0.42 / scale, 4),
+        new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
+      );
+      diamond.rotation.z = Math.PI;
+      badgeGroup.add(diamond);
+    } else if (enemyType === 'warrior') {
+      // 🛡️ Emerald Regeneration Cross
+      const hBar = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.40 / scale, 0.14 / scale),
+        new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide })
+      );
+      const vBar = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.14 / scale, 0.40 / scale),
+        new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide })
+      );
+      vBar.position.z = 0.002 / scale;
+      badgeGroup.add(hBar);
+      badgeGroup.add(vBar);
+    } else if (enemyType === 'armored') {
+      // 🧱 Amethyst Sturdy Shield
+      const shield = new THREE.Mesh(
+        new THREE.CircleGeometry(0.24 / scale, 6),
+        new THREE.MeshBasicMaterial({ color: 0xa855f7, side: THREE.DoubleSide })
+      );
+      const shieldCore = new THREE.Mesh(
+        new THREE.CircleGeometry(0.12 / scale, 6),
+        new THREE.MeshBasicMaterial({ color: 0xe9d5ff, side: THREE.DoubleSide })
+      );
+      shieldCore.position.z = 0.002 / scale;
+      badgeGroup.add(shield);
+      badgeGroup.add(shieldCore);
+    } else if (enemyType === 'toxic') {
+      // 🧪 Neon Toxic Hazard Orb
+      const orb = new THREE.Mesh(
+        new THREE.CircleGeometry(0.18 / scale, 12),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide })
+      );
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.22 / scale, 0.28 / scale, 12),
+        new THREE.MeshBasicMaterial({ color: 0x059669, side: THREE.DoubleSide })
+      );
+      ring.position.z = 0.002 / scale;
+      badgeGroup.add(orb);
+      badgeGroup.add(ring);
+    } else if (enemyType === 'boss') {
+      // 👑 Golden Boss Crown
+      const crownBase = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.55 / scale, 0.16 / scale),
+        new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.DoubleSide })
+      );
+      const crownLeft = new THREE.Mesh(
+        new THREE.ConeGeometry(0.12 / scale, 0.28 / scale, 3),
+        new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.DoubleSide })
+      );
+      crownLeft.position.set(-0.2 / scale, 0.16 / scale, 0);
+      const crownMid = new THREE.Mesh(
+        new THREE.ConeGeometry(0.14 / scale, 0.38 / scale, 3),
+        new THREE.MeshBasicMaterial({ color: 0xffe066, side: THREE.DoubleSide })
+      );
+      crownMid.position.set(0, 0.22 / scale, 0.002 / scale);
+      const crownRight = new THREE.Mesh(
+        new THREE.ConeGeometry(0.12 / scale, 0.28 / scale, 3),
+        new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.DoubleSide })
+      );
+      crownRight.position.set(0.2 / scale, 0.16 / scale, 0);
+
+      badgeGroup.add(crownBase);
+      badgeGroup.add(crownLeft);
+      badgeGroup.add(crownMid);
+      badgeGroup.add(crownRight);
+    }
+
+    hbGroup.add(badgeGroup);
     group.add(hbGroup);
 
-    return { mesh: group, mixer, healthBarFill: fillBar };
+    return { mesh: group, mixer, healthBarFill: fillBar, healthBarGroup: hbGroup };
   }
 
   public showRangeIndicator(position: THREE.Vector3, range: number) {

@@ -72,39 +72,59 @@ export const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
   scout: {
     type: 'scout',
     name: 'Quimera Exploradora',
+    traitLabel: '⚡ Sprint Veloz',
     modelFile: 'sapidae-m-a.glb',
-    baseHp: 65,
-    speed: 3.8,
+    baseHp: 75,
+    speed: 4.2,
     rewardSlp: 12,
-    scale: 0.95
+    scale: 1.0,
+    hasSprint: true
   },
   warrior: {
     type: 'warrior',
     name: 'Quimera Guerrera',
+    traitLabel: '🛡️ Regeneración',
     modelFile: 'sapidae-f-a.glb',
-    baseHp: 130,
+    baseHp: 160,
     speed: 2.6,
-    rewardSlp: 18,
-    scale: 1.15
+    rewardSlp: 20,
+    scale: 1.25,
+    regenRate: 10
   },
   armored: {
     type: 'armored',
     name: 'Quimera Blindada',
+    traitLabel: '🧱 Anti-Slow & Blindaje',
     modelFile: 'sapidae-m-e.glb',
-    baseHp: 320,
-    speed: 1.6,
-    rewardSlp: 35,
-    scale: 1.45,
-    colorFilter: 0x9333ea
+    baseHp: 380,
+    speed: 1.5,
+    rewardSlp: 40,
+    scale: 1.5,
+    colorFilter: 0x9333ea,
+    isImmuneSlow: true,
+    armorReduction: 0.3
+  },
+  toxic: {
+    type: 'toxic',
+    name: 'Quimera Tóxica',
+    traitLabel: '🧪 Anti-Veneno & Aura',
+    modelFile: 'sapidae-f-c.glb',
+    baseHp: 240,
+    speed: 2.3,
+    rewardSlp: 30,
+    scale: 1.25,
+    colorFilter: 0x10b981,
+    isImmunePoison: true
   },
   boss: {
     type: 'boss',
     name: 'Reina Quimera Ancestral',
+    traitLabel: '👑 Colosal Imparable',
     modelFile: 'sapidae-f-b.glb',
-    baseHp: 2200,
-    speed: 1.4,
-    rewardSlp: 200,
-    scale: 2.6,
+    baseHp: 2800,
+    speed: 1.3,
+    rewardSlp: 250,
+    scale: 2.7,
     colorFilter: 0xff1144
   }
 };
@@ -168,12 +188,13 @@ export const TD_WAVES: WaveConfig[] = [
       { enemyType: 'scout', count: 10, interval: 1.2, delay: 2 }
     ]
   },
-  // Ola 5: Enjambre Mixto
+  // Ola 5: Introducción de Quimeras Tóxicas
   {
     waveNumber: 5,
     groups: [
-      { enemyType: 'warrior', count: 12, interval: 1.3, delay: 0 },
-      { enemyType: 'armored', count: 3, interval: 2.5, delay: 5 }
+      { enemyType: 'warrior', count: 8, interval: 1.3, delay: 0 },
+      { enemyType: 'toxic', count: 4, interval: 2.0, delay: 3 },
+      { enemyType: 'armored', count: 2, interval: 2.5, delay: 7 }
     ]
   },
   // Ola 6: Desfile de Blindados
@@ -184,29 +205,32 @@ export const TD_WAVES: WaveConfig[] = [
       { enemyType: 'scout', count: 12, interval: 0.9, delay: 4 }
     ]
   },
-  // Ola 7: Ataque Relámpago
+  // Ola 7: Ataque Relámpago con Toxinas
   {
     waveNumber: 7,
     groups: [
-      { enemyType: 'scout', count: 20, interval: 0.7, delay: 0 },
-      { enemyType: 'warrior', count: 8, interval: 1.2, delay: 5 }
+      { enemyType: 'scout', count: 16, interval: 0.7, delay: 0 },
+      { enemyType: 'toxic', count: 5, interval: 1.8, delay: 3 },
+      { enemyType: 'warrior', count: 8, interval: 1.2, delay: 6 }
     ]
   },
-  // Ola 8: Alta Resistencia
+  // Ola 8: Alta Resistencia Quimérica
   {
     waveNumber: 8,
     groups: [
-      { enemyType: 'armored', count: 8, interval: 2.0, delay: 0 },
-      { enemyType: 'warrior', count: 14, interval: 1.1, delay: 3 }
+      { enemyType: 'armored', count: 6, interval: 2.0, delay: 0 },
+      { enemyType: 'toxic', count: 6, interval: 1.6, delay: 2 },
+      { enemyType: 'warrior', count: 12, interval: 1.1, delay: 5 }
     ]
   },
   // Ola 9: Gran Asedio Pre-Jefe
   {
     waveNumber: 9,
     groups: [
-      { enemyType: 'armored', count: 10, interval: 1.8, delay: 0 },
-      { enemyType: 'scout', count: 16, interval: 0.8, delay: 2 },
-      { enemyType: 'warrior', count: 12, interval: 1.0, delay: 6 }
+      { enemyType: 'armored', count: 8, interval: 1.8, delay: 0 },
+      { enemyType: 'scout', count: 14, interval: 0.8, delay: 2 },
+      { enemyType: 'toxic', count: 8, interval: 1.4, delay: 4 },
+      { enemyType: 'warrior', count: 10, interval: 1.0, delay: 7 }
     ]
   },
   // Ola 10: JEFE FINAL - Reina Quimera Ancestral
@@ -214,8 +238,9 @@ export const TD_WAVES: WaveConfig[] = [
     waveNumber: 10,
     groups: [
       { enemyType: 'armored', count: 4, interval: 2.0, delay: 0 },
-      { enemyType: 'boss', count: 1, interval: 1.0, delay: 4 },
-      { enemyType: 'scout', count: 15, interval: 0.9, delay: 8 }
+      { enemyType: 'toxic', count: 4, interval: 1.8, delay: 2 },
+      { enemyType: 'boss', count: 1, interval: 1.0, delay: 5 },
+      { enemyType: 'scout', count: 16, interval: 0.8, delay: 8 }
     ]
   }
 ];

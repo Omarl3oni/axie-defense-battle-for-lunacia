@@ -61,6 +61,7 @@ class TowerDefenseGame {
   // Raycaster & Mouse
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
   private mouse: THREE.Vector2 = new THREE.Vector2();
+  private _tempEnemyQuat: THREE.Quaternion = new THREE.Quaternion();
 
   // UI Element References
   private waveDisplay = document.querySelector('#wave-display') as HTMLElement;
@@ -113,6 +114,7 @@ class TowerDefenseGame {
       'sapidae-f-a.glb',
       'sapidae-m-a.glb',
       'sapidae-m-e.glb',
+      'sapidae-f-c.glb',
       'sapidae-f-b.glb'
     ];
     await this.arena.preloadModels(models);
@@ -617,7 +619,7 @@ class TowerDefenseGame {
 
   private spawnEnemy(type: EnemyType) {
     const config = ENEMY_CONFIGS[type] || ENEMY_CONFIGS.scout;
-    const { mesh, mixer, healthBarFill } = this.arena.createEnemyMesh(config.modelFile, config.scale, config.colorFilter);
+    const { mesh, mixer, healthBarFill, healthBarGroup } = this.arena.createEnemyMesh(config.modelFile, config.scale, config.colorFilter, type);
 
     const startPos = this.arena.pathSystem.getPositionAtDistance(0).position;
     mesh.position.copy(startPos);
@@ -630,6 +632,7 @@ class TowerDefenseGame {
       hp: config.baseHp * (1 + this.currentWaveIndex * 0.15),
       maxHp: config.baseHp * (1 + this.currentWaveIndex * 0.15),
       speed: config.speed,
+      baseSpeed: config.speed,
       rewardSlp: config.rewardSlp,
       pathDistance: 0,
       position: startPos.clone(),
@@ -640,7 +643,14 @@ class TowerDefenseGame {
       slowFactor: 0,
       poisonTimer: 0,
       poisonDmg: 0,
-      healthBarFill
+      healthBarFill,
+      healthBarGroup,
+      isImmuneSlow: config.isImmuneSlow,
+      isImmunePoison: config.isImmunePoison,
+      armorReduction: config.armorReduction,
+      regenRate: config.regenRate,
+      hasSprint: config.hasSprint,
+      isFrenzyActive: false
     };
 
     this.enemies.push(enemy);
@@ -716,8 +726,38 @@ class TowerDefenseGame {
     }
 
     // 3. Update Enemies Movement & Status Effects
+    const toxicAuraPositions: THREE.Vector3[] = [];
+    for (const e of this.enemies) {
+      if (e.type === 'toxic' && e.hp > 0) {
+        toxicAuraPositions.push(e.position);
+      }
+    }
+
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
+
+      // Personality: Warrior Health Regeneration
+      if (e.regenRate && e.hp < e.maxHp && e.hp > 0) {
+        e.hp = Math.min(e.maxHp, e.hp + e.regenRate * delta);
+      }
+
+      // Personality: Scout Sprint Frenzy (< 45% HP)
+      if (e.hasSprint && !e.isFrenzyActive && (e.hp / e.maxHp) <= 0.45) {
+        e.isFrenzyActive = true;
+        e.speed = e.baseSpeed * 1.45;
+        this.arena.showDamageNumber(e.position, 0, true);
+      }
+
+      // Personality: Toxic Pheromone Aura (+15% speed buff to nearby allies within 4.5m)
+      let auraSpeedMult = 1.0;
+      if (e.type !== 'toxic') {
+        for (const tPos of toxicAuraPositions) {
+          if (tPos.distanceTo(e.position) <= 4.5) {
+            auraSpeedMult = 1.15;
+            break;
+          }
+        }
+      }
 
       // Slow Effect
       if (e.slowTimer > 0) {
@@ -733,7 +773,7 @@ class TowerDefenseGame {
       }
 
       // Move along path
-      const currentSpeed = e.speed * (1 - e.slowFactor);
+      const currentSpeed = e.speed * auraSpeedMult * (1 - e.slowFactor);
       e.pathDistance += currentSpeed * delta;
 
       const { position, tangent } = this.arena.pathSystem.getPositionAtDistance(e.pathDistance);
@@ -743,9 +783,21 @@ class TowerDefenseGame {
 
       if (e.mixer) e.mixer.update(delta);
 
-      // Update Overhead 3D Health Bar
+      // Billboard Overhead 3D Health Bar to Camera
+      this._tempEnemyQuat.copy(e.mesh.quaternion).invert().multiply(this.arena.camera.quaternion);
+      e.healthBarGroup.quaternion.copy(this._tempEnemyQuat);
+
+      // Update Overhead 3D Health Bar with Dynamic Color
       const hpRatio = Math.max(0, e.hp / e.maxHp);
       e.healthBarFill.scale.set(hpRatio, 1, 1);
+      const fillMat = e.healthBarFill.material as THREE.MeshBasicMaterial;
+      if (hpRatio > 0.55) {
+        fillMat.color.setHex(0x22c55e); // Green
+      } else if (hpRatio > 0.25) {
+        fillMat.color.setHex(0xf59e0b); // Amber / Yellow
+      } else {
+        fillMat.color.setHex(0xef4444); // Red
+      }
 
       // Enemy Reached Ancient Tree (Goal)
       if (e.pathDistance >= this.arena.pathSystem.totalLength) {
@@ -969,17 +1021,35 @@ class TowerDefenseGame {
       // Splash damage & Slow in area
       for (const enemy of this.enemies) {
         if (enemy.position.distanceTo(p.targetLastPos) <= p.splashRadius) {
-          enemy.hp -= p.damage;
-          enemy.slowTimer = 2.5;
-          enemy.slowFactor = 0.45;
-          this.arena.showDamageNumber(enemy.position, p.damage, p.isCrit);
+          let dealtDmg = p.damage;
+          // Personality: Armored Chitin absorbs 30% normal damage (Crits pierce armor!)
+          if (enemy.armorReduction && !p.isCrit) {
+            dealtDmg = Math.round(dealtDmg * (1 - enemy.armorReduction));
+          }
+
+          enemy.hp -= dealtDmg;
+
+          // Personality: Anti-Slow Immunity & Boss Resistance
+          if (!enemy.isImmuneSlow) {
+            enemy.slowTimer = 2.5;
+            enemy.slowFactor = enemy.isBoss ? 0.20 : 0.45;
+          }
+
+          this.arena.showDamageNumber(enemy.position, dealtDmg, p.isCrit);
         }
       }
     } else if (directTarget) {
-      directTarget.hp -= p.damage;
-      this.arena.showDamageNumber(directTarget.position, p.damage, p.isCrit);
+      let dealtDmg = p.damage;
+      // Personality: Armored Chitin absorbs 30% normal damage (Crits pierce armor!)
+      if (directTarget.armorReduction && !p.isCrit) {
+        dealtDmg = Math.round(dealtDmg * (1 - directTarget.armorReduction));
+      }
 
-      if (p.isPoison) {
+      directTarget.hp -= dealtDmg;
+      this.arena.showDamageNumber(directTarget.position, dealtDmg, p.isCrit);
+
+      // Personality: Toxic quimera is immune to poison
+      if (p.isPoison && !directTarget.isImmunePoison) {
         directTarget.poisonTimer = 4.0;
         directTarget.poisonDmg = 8;
       }
