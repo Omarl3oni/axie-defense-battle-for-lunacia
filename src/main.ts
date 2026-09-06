@@ -20,7 +20,7 @@ class Game {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
-  private clock: THREE.Clock;
+  private lastTime: number = performance.now();
 
   // Arena
   private readonly arenaRadius = 35;
@@ -86,10 +86,8 @@ class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.25;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.canvasWrap.appendChild(this.renderer.domElement);
-
-    this.clock = new THREE.Clock();
 
     // 4. Managers
     this.enemyManager = new EnemyManager(this.scene);
@@ -283,7 +281,9 @@ class Game {
   }
 
   private loop() {
-    const delta = Math.min(this.clock.getDelta(), 0.05);
+    const now = performance.now();
+    const delta = Math.min((now - this.lastTime) / 1000, 0.05);
+    this.lastTime = now;
 
     if (this.state === GameState.PLAYING && this.player) {
       this.gameTime += delta;
