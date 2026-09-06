@@ -5,12 +5,17 @@ import {
   TowerInstance,
   TDEnemy,
   TDProjectile,
-  EnemyType
+  EnemyType,
+  TargetingMode,
+  RuneConfig,
+  GroundHazard,
+  ActiveSynergies
 } from './tower-defense-types';
 import {
   TOWER_CONFIGS,
   ENEMY_CONFIGS,
-  TD_WAVES
+  TD_WAVES,
+  RUNE_CATALOG
 } from './tower-defense-data';
 import { sounds } from './audio';
 
@@ -51,8 +56,15 @@ class TowerDefenseGame {
   private towers: TowerInstance[] = [];
   private enemies: TDEnemy[] = [];
   private projectiles: TDProjectile[] = [];
+  private groundHazards: GroundHazard[] = [];
   private nextEnemyId: number = 1;
   private nextProjId: number = 1;
+  private nextHazardId: number = 1;
+
+  // Roguelite Runes & Synergies State
+  private activeRunes: RuneConfig[] = [];
+  private activeSynergies: ActiveSynergies = { plantAqua: false, beastBird: false, fullLunacia: false };
+  private isDraftingRune: boolean = false;
 
   // Wave Spawning Queue
   private waveQueue: { enemyType: EnemyType; spawnTime: number }[] = [];
@@ -71,6 +83,9 @@ class TowerDefenseGame {
   private startWaveBtn = document.querySelector('#start-wave-btn') as HTMLButtonElement;
   private spellBtn = document.querySelector('#spell-btn') as HTMLElement;
   private spellCooldownOverlay = document.querySelector('#spell-cooldown-overlay') as HTMLElement;
+  private synergyPill = document.querySelector('#synergy-pill') as HTMLElement;
+  private synergyLabel = document.querySelector('#synergy-label') as HTMLElement;
+  private activeRunesContainer = document.querySelector('#active-runes-container') as HTMLElement;
 
   private inspectorModal = document.querySelector('#inspector-modal') as HTMLElement;
   private inspectAvatar = document.querySelector('#inspect-avatar') as HTMLElement;
@@ -85,6 +100,13 @@ class TowerDefenseGame {
   private sellTowerBtn = document.querySelector('#sell-tower-btn') as HTMLButtonElement;
   private sellRefundText = document.querySelector('#sell-refund-text') as HTMLElement;
   private closeInspectorBtn = document.querySelector('#close-inspector-btn') as HTMLElement;
+  private ultimateStatusBox = document.querySelector('#ultimate-status-box') as HTMLElement;
+  private ultimateChargeText = document.querySelector('#ultimate-charge-text') as HTMLElement;
+  private ultimateFill = document.querySelector('#ultimate-fill') as HTMLElement;
+  private ultimateDesc = document.querySelector('#ultimate-desc') as HTMLElement;
+
+  private runeModal = document.querySelector('#rune-modal') as HTMLElement;
+  private runeOptionsRow = document.querySelector('#rune-options-row') as HTMLElement;
 
   private startScreen = document.querySelector('#start-screen') as HTMLElement;
   private resultScreen = document.querySelector('#result-screen') as HTMLElement;
@@ -187,6 +209,19 @@ class TowerDefenseGame {
     this.upgradeTowerBtn.addEventListener('click', () => this.upgradeSelectedTower());
     this.sellTowerBtn.addEventListener('click', () => this.sellSelectedTower());
 
+    // Targeting Mode Buttons in Inspector
+    const targetModeBtns = document.querySelectorAll('.btn-target-mode');
+    targetModeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!this.inspectedTower) return;
+        const mode = btn.getAttribute('data-mode') as TargetingMode;
+        this.inspectedTower.targetingMode = mode;
+        targetModeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        sounds.playShoot();
+      });
+    });
+
     // Pointer Move for Placement Hologram
     window.addEventListener('pointermove', (e) => this.onPointerMove(e));
 
@@ -272,6 +307,19 @@ class TowerDefenseGame {
     this.projectiles = [];
     this.waveQueue = [];
 
+    // Clear Ground Hazards
+    for (const gh of this.groundHazards) {
+      this.arena.scene.remove(gh.mesh);
+      gh.mesh.geometry.dispose();
+    }
+    this.groundHazards = [];
+    this.activeRunes = [];
+    this.activeSynergies = { plantAqua: false, beastBird: false, fullLunacia: false };
+    this.isDraftingRune = false;
+    this.runeModal.classList.add('hidden');
+    this.recalculateSynergies();
+    this.renderRuneChips();
+
     this.updateHUD();
     sounds.startMusic();
   }
@@ -348,6 +396,9 @@ class TowerDefenseGame {
 
           this.arena.scene.add(mesh);
 
+          const hasSwift = this.activeRunes.some(r => r.id === 'swift_craft');
+          const bDuration = hasSwift ? config.buildTime * 0.55 : config.buildTime;
+
           const tower: TowerInstance = {
             id: `tower_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
             type: config.type,
@@ -358,11 +409,14 @@ class TowerDefenseGame {
             attackSpeed: config.attackSpeed,
             attackTimer: 0,
             targetEnemyId: null,
+            targetingMode: 'first',
+            ultimateCharge: 0,
+            ultimateMax: config.type === 'pomodoro' ? 6 : config.type === 'kotaro' ? 5 : config.type === 'bing' ? 4 : 4,
             mesh,
             mixer,
             isUnderConstruction: true,
-            constructionTimer: config.buildTime,
-            constructionDuration: config.buildTime,
+            constructionTimer: bDuration,
+            constructionDuration: bDuration,
             isUpgrading: false,
             upgradeTimer: 0,
             upgradeDuration: 0,
@@ -372,9 +426,10 @@ class TowerDefenseGame {
           };
 
           this.towers.push(tower);
+          this.recalculateSynergies();
 
           // Trigger card cooldown in tray
-          this.cardCooldowns[config.type] = config.buildTime;
+          this.cardCooldowns[config.type] = bDuration;
 
           // Clear selection
           this.selectedBuildType = null;
@@ -459,6 +514,29 @@ class TowerDefenseGame {
     const refund = Math.round(invested * 0.7);
     this.sellRefundText.textContent = `+${refund} ⚡`;
 
+    // Targeting Mode Buttons State
+    const targetModeBtns = document.querySelectorAll('.btn-target-mode');
+    targetModeBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === tower.targetingMode);
+    });
+
+    // Ultimate Ability Status for Level 3
+    if (tower.level >= 3) {
+      this.ultimateStatusBox.classList.remove('hidden');
+      this.ultimateChargeText.textContent = `${tower.ultimateCharge} / ${tower.ultimateMax}`;
+      const pct = Math.min(100, Math.round((tower.ultimateCharge / tower.ultimateMax) * 100));
+      this.ultimateFill.style.width = `${pct}%`;
+      const ultDescs: Record<TowerType, string> = {
+        pomodoro: 'Bombardeo Triple: cada 6 ataques dispara 3 proyectiles tóxicos en área.',
+        kotaro: 'Tajo Giratorio: cada 5 ataques ejecuta un tajo circular en 360° en 3.5m.',
+        bing: 'Oleaje de Tsunami: cada 4 ataques desata una ola que empuja 2.5m hacia atrás.',
+        tripp: 'Saeta Divina: cada 4 ataques dispara un rayo que atraviesa a todos en línea recta.'
+      };
+      this.ultimateDesc.textContent = ultDescs[tower.type];
+    } else {
+      this.ultimateStatusBox.classList.add('hidden');
+    }
+
     this.inspectorModal.classList.remove('hidden');
     this.arena.showRangeIndicator(tower.position, tower.range);
   }
@@ -485,7 +563,9 @@ class TowerDefenseGame {
     this.slp -= cost;
 
     // Cooldown duration for upgrade: Level 2 = 3.5s, Level 3 = 5.5s
-    const duration = tower.level === 1 ? 3.5 : 5.5;
+    const hasSwift = this.activeRunes.some(r => r.id === 'swift_craft');
+    const baseDuration = tower.level === 1 ? 3.5 : 5.5;
+    const duration = hasSwift ? baseDuration * 0.55 : baseDuration;
     tower.isUpgrading = true;
     tower.upgradeTimer = duration;
     tower.upgradeDuration = duration;
@@ -557,18 +637,20 @@ class TowerDefenseGame {
     this.removeStatusBadge(tower);
     this.arena.scene.remove(tower.mesh);
     this.towers = this.towers.filter(t => t.id !== tower.id);
+    this.recalculateSynergies();
 
     this.closeInspector();
     this.updateHUD();
   }
 
   private castMeteorSpell(pos: THREE.Vector3) {
-    this.spellCooldown = this.spellMaxCooldown;
+    const hasCelestial = this.activeRunes.some(r => r.id === 'celestial_fury');
+    this.spellCooldown = hasCelestial ? 13.0 : this.spellMaxCooldown;
     sounds.playLevelUp();
     this.arena.triggerMeteorEffect(pos);
 
-    // Deal 180 AoE damage to all enemies within radius 4.5
-    const aoeRadius = 4.5;
+    // Deal 180 AoE damage to all enemies within radius (expanded by celestial rune)
+    const aoeRadius = hasCelestial ? 5.8 : 4.5;
     let hitCount = 0;
 
     for (const enemy of this.enemies) {
@@ -664,7 +746,7 @@ class TowerDefenseGame {
     const delta = rawDelta * this.gameSpeed;
 
     // 0. Intermission Auto-Wave Countdown
-    if (this.isIntermission) {
+    if (this.isIntermission && !this.isDraftingRune) {
       this.intermissionTimer -= delta;
 
       const sec = Math.ceil(this.intermissionTimer);
@@ -817,12 +899,42 @@ class TowerDefenseGame {
 
       // Enemy Died
       if (e.hp <= 0) {
-        this.slp += e.rewardSlp;
+        const hasHarvest = this.activeRunes.some(r => r.id === 'slp_harvest');
+        const bonusSlp = hasHarvest ? 4 : 0;
+        this.slp += e.rewardSlp + bonusSlp;
         sounds.playHit();
-        this.arena.showDamageNumber(e.position, Math.round(e.rewardSlp), false);
+        this.arena.showDamageNumber(e.position, Math.round(e.rewardSlp + bonusSlp), false);
         this.arena.scene.remove(e.mesh);
         this.enemies.splice(i, 1);
         this.updateHUD();
+      }
+    }
+
+    // 3b. Update Ground Hazards (Floración Venenosa)
+    for (let h = this.groundHazards.length - 1; h >= 0; h--) {
+      const gh = this.groundHazards[h];
+      gh.duration -= delta;
+      gh.tickTimer += delta;
+
+      if (gh.tickTimer >= 0.4) {
+        gh.tickTimer = 0;
+        for (const enemy of this.enemies) {
+          if (enemy.position.distanceTo(gh.position) <= gh.radius) {
+            const tickDmg = Math.round(gh.dps * 0.4);
+            enemy.hp -= tickDmg;
+            if (!enemy.isImmuneSlow) {
+              enemy.slowTimer = Math.max(enemy.slowTimer, 1.2);
+              enemy.slowFactor = Math.max(enemy.slowFactor, 0.40);
+            }
+            this.arena.showDamageNumber(enemy.position, tickDmg, false);
+          }
+        }
+      }
+
+      if (gh.duration <= 0) {
+        this.arena.scene.remove(gh.mesh);
+        gh.mesh.geometry.dispose();
+        this.groundHazards.splice(h, 1);
       }
     }
 
@@ -913,15 +1025,39 @@ class TowerDefenseGame {
 
       t.attackTimer += delta;
 
-      // Find best target (furthest along path in range)
+      // Apply Hawkeye rune: +20% range
+      const hasHawkeye = this.activeRunes.some(r => r.id === 'hawkeye_rune');
+      const effRange = hasHawkeye ? t.range * 1.20 : t.range;
+
+      // Apply Full Lunacia synergy: +15% attack speed
+      const effAttackSpeed = this.activeSynergies.fullLunacia ? t.attackSpeed * 1.15 : t.attackSpeed;
+
+      // Find best target based on tower.targetingMode
       let bestTarget: TDEnemy | null = null;
-      let maxDist = -1;
+      let bestScore = -Infinity;
 
       for (const enemy of this.enemies) {
         const dist = enemy.position.distanceTo(t.position);
-        if (dist <= t.range && enemy.pathDistance > maxDist) {
-          maxDist = enemy.pathDistance;
-          bestTarget = enemy;
+        if (dist <= effRange) {
+          let score = 0;
+          switch (t.targetingMode) {
+            case 'first':
+              score = enemy.pathDistance;
+              break;
+            case 'strongest':
+              score = enemy.hp;
+              break;
+            case 'weakest':
+              score = -enemy.hp;
+              break;
+            case 'fastest':
+              score = enemy.speed;
+              break;
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            bestTarget = enemy;
+          }
         }
       }
 
@@ -931,7 +1067,7 @@ class TowerDefenseGame {
         t.mesh.rotation.y = Math.atan2(dir.x, dir.z);
 
         // Fire
-        const cooldown = 1 / t.attackSpeed;
+        const cooldown = 1 / effAttackSpeed;
         if (t.attackTimer >= cooldown) {
           t.attackTimer = 0;
           this.fireProjectile(t, bestTarget);
@@ -986,6 +1122,25 @@ class TowerDefenseGame {
   private fireProjectile(tower: TowerInstance, target: TDEnemy) {
     sounds.playShoot();
 
+    // Ultimate Charge Accumulation for Level 3 Towers
+    if (tower.level >= 3) {
+      tower.ultimateCharge++;
+      if (this.inspectedTower?.id === tower.id) {
+        this.ultimateChargeText.textContent = `${tower.ultimateCharge} / ${tower.ultimateMax}`;
+        const pct = Math.min(100, Math.round((tower.ultimateCharge / tower.ultimateMax) * 100));
+        this.ultimateFill.style.width = `${pct}%`;
+      }
+
+      if (tower.ultimateCharge >= tower.ultimateMax) {
+        tower.ultimateCharge = 0;
+        if (this.inspectedTower?.id === tower.id) {
+          this.ultimateChargeText.textContent = `0 / ${tower.ultimateMax}`;
+          this.ultimateFill.style.width = `0%`;
+        }
+        this.triggerTowerUltimate(tower, target);
+      }
+    }
+
     // Create Projectile Mesh
     let geom: THREE.BufferGeometry;
     let mat: THREE.Material;
@@ -1039,7 +1194,32 @@ class TowerDefenseGame {
   private onProjectileImpact(p: TDProjectile, directTarget?: TDEnemy) {
     sounds.playHit();
 
+    const hasStorm = this.activeRunes.some(r => r.id === 'storm_rune');
+    const hasFrost = this.activeRunes.some(r => r.id === 'frost_amulet');
+    const hasDeepPoison = this.activeRunes.some(r => r.id === 'deep_poison');
+
+    // Rune: Storm Rune (Kotaro Crit triggers chain lightning)
+    if (hasStorm && p.isCrit) {
+      this.triggerChainLightning(p.targetLastPos, 3, 65);
+    }
+
+    // Synergy: Beast + Bird (Caza Coordinada: Kotaro Crit triggers free shot from highest-level Tripp)
+    if (this.activeSynergies.beastBird && p.type === 'kotaro' && p.isCrit) {
+      const bestTripp = this.towers
+        .filter(t => t.type === 'tripp' && !t.isUnderConstruction && !t.isUpgrading)
+        .sort((a, b) => b.level - a.level)[0];
+
+      if (bestTripp) {
+        const targetToShoot = directTarget || this.enemies[0];
+        if (targetToShoot) {
+          this.fireProjectile(bestTripp, targetToShoot);
+        }
+      }
+    }
+
     if (p.isSplash) {
+      let triggeredBloom = false;
+
       // Splash damage & Slow in area
       for (const enemy of this.enemies) {
         if (enemy.position.distanceTo(p.targetLastPos) <= p.splashRadius) {
@@ -1051,8 +1231,19 @@ class TowerDefenseGame {
 
           enemy.hp -= dealtDmg;
 
-          // Personality: Anti-Slow Immunity & Boss Resistance
-          if (!enemy.isImmuneSlow) {
+          // Synergy: Plant + Aqua (Floración Venenosa: splash on poisoned enemy spawns ground hazard)
+          if (this.activeSynergies.plantAqua && enemy.poisonTimer > 0 && !triggeredBloom) {
+            triggeredBloom = true;
+            this.spawnGroundHazard(p.targetLastPos.clone(), 3.0, 5.0, 22);
+          }
+
+          // Rune: Frost Amulet (30% chance to freeze completely for 1.0s)
+          if (hasFrost && !enemy.isImmuneSlow && Math.random() < 0.30) {
+            enemy.slowTimer = 1.0;
+            enemy.slowFactor = 1.0; // 100% freeze
+            this.arena.showDamageNumber(enemy.position, 0, true);
+          } else if (!enemy.isImmuneSlow) {
+            // Personality: Anti-Slow Immunity & Boss Resistance
             enemy.slowTimer = 2.5;
             enemy.slowFactor = enemy.isBoss ? 0.20 : 0.45;
           }
@@ -1072,10 +1263,228 @@ class TowerDefenseGame {
 
       // Personality: Toxic quimera is immune to poison
       if (p.isPoison && !directTarget.isImmunePoison) {
-        directTarget.poisonTimer = 4.0;
-        directTarget.poisonDmg = 8;
+        directTarget.poisonTimer = hasDeepPoison ? 8.0 : 4.0;
+        directTarget.poisonDmg = hasDeepPoison ? 14 : 8;
       }
     }
+  }
+
+  private triggerTowerUltimate(tower: TowerInstance, target: TDEnemy) {
+    sounds.playLevelUp();
+
+    if (tower.type === 'pomodoro') {
+      // Pomodoro: Triple Mortar barrage!
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          if (!target || (target.hp <= 0 && this.enemies.length === 0)) return;
+          const currentTarget = this.enemies.find(e => e.id === target.id) || this.enemies[0];
+          if (!currentTarget) return;
+
+          const offset = new THREE.Vector3(
+            (Math.random() - 0.5) * 2.5,
+            0,
+            (Math.random() - 0.5) * 2.5
+          );
+          const mortarPos = currentTarget.position.clone().add(offset);
+          mortarPos.y = 0.8;
+
+          const geom = new THREE.SphereGeometry(0.35, 8, 8);
+          const mat = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e });
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.position.copy(tower.position);
+          mesh.position.y = 1.6;
+          this.arena.scene.add(mesh);
+
+          this.projectiles.push({
+            id: this.nextProjId++,
+            type: 'pomodoro',
+            mesh,
+            targetId: currentTarget.id,
+            targetLastPos: mortarPos,
+            speed: 22,
+            damage: Math.round(tower.damage * 2.0),
+            isCrit: true,
+            isSplash: true,
+            splashRadius: 3.5,
+            isSlow: false,
+            isPoison: true,
+            lifeTimer: 0,
+            maxLife: 2.5
+          });
+          sounds.playShoot();
+        }, i * 160);
+      }
+    } else if (tower.type === 'kotaro') {
+      // Kotaro: Whirlwind Slash in 360 degrees (radius 3.8m)
+      this.arena.triggerWhirlwindSlash(tower.position, 3.8);
+      sounds.playShoot();
+      for (const enemy of this.enemies) {
+        if (enemy.position.distanceTo(tower.position) <= 3.8) {
+          const ultDmg = Math.round(tower.damage * 2.4);
+          enemy.hp -= ultDmg;
+          this.arena.showDamageNumber(enemy.position, ultDmg, true);
+        }
+      }
+    } else if (tower.type === 'bing') {
+      // Bing: Tsunami Wave pushing enemies back 2.8m along path
+      this.arena.triggerTsunamiWave(tower.position, 5.2);
+      sounds.playShoot();
+      for (const enemy of this.enemies) {
+        if (enemy.position.distanceTo(tower.position) <= 5.2) {
+          const ultDmg = Math.round(tower.damage * 1.5);
+          enemy.hp -= ultDmg;
+          this.arena.showDamageNumber(enemy.position, ultDmg, false);
+
+          // Push back along path
+          enemy.pathDistance = Math.max(0, enemy.pathDistance - 2.8);
+          const { position, tangent } = this.arena.pathSystem.getPositionAtDistance(enemy.pathDistance);
+          enemy.position.copy(position);
+          enemy.mesh.position.copy(position);
+          enemy.mesh.rotation.y = Math.atan2(tangent.x, tangent.z);
+
+          // Apply slow
+          if (!enemy.isImmuneSlow) {
+            enemy.slowTimer = 3.0;
+            enemy.slowFactor = 0.5;
+          }
+        }
+      }
+    } else if (tower.type === 'tripp') {
+      // Tripp: Divine Piercing Beam
+      const targetPos = target.position.clone();
+      targetPos.y = 0.8;
+      const dir = new THREE.Vector3().subVectors(targetPos, tower.position).normalize();
+      const beamEnd = tower.position.clone().addScaledVector(dir, tower.range * 1.3);
+      this.arena.triggerDivineBeam(tower.position, beamEnd);
+      sounds.playShoot();
+
+      const lineSegment = new THREE.Line3(tower.position, beamEnd);
+      const closestPoint = new THREE.Vector3();
+
+      for (const enemy of this.enemies) {
+        lineSegment.closestPointToPoint(enemy.position, true, closestPoint);
+        if (closestPoint.distanceTo(enemy.position) <= 1.4) {
+          const ultDmg = Math.round(tower.damage * 3.2);
+          enemy.hp -= ultDmg;
+          this.arena.showDamageNumber(enemy.position, ultDmg, true);
+        }
+      }
+    }
+  }
+
+  private triggerChainLightning(origin: THREE.Vector3, maxTargets: number, damage: number) {
+    const sorted = [...this.enemies]
+      .filter(e => e.hp > 0)
+      .sort((a, b) => a.position.distanceTo(origin) - b.position.distanceTo(origin));
+
+    const targets = sorted.slice(0, maxTargets);
+    if (targets.length === 0) return;
+
+    const points: THREE.Vector3[] = [origin.clone()];
+    for (const t of targets) {
+      points.push(t.position.clone().add(new THREE.Vector3(0, 0.8, 0)));
+      t.hp -= damage;
+      this.arena.showDamageNumber(t.position, damage, true);
+    }
+
+    this.arena.triggerChainLightning(points);
+    sounds.playShoot();
+  }
+
+  private spawnGroundHazard(pos: THREE.Vector3, radius: number, duration: number, dps: number) {
+    const mesh = this.arena.createBloomHazardMesh(pos, radius);
+    const hazard: GroundHazard = {
+      id: this.nextHazardId++,
+      position: pos.clone(),
+      radius,
+      duration,
+      maxDuration: duration,
+      dps,
+      mesh,
+      tickTimer: 0
+    };
+    this.groundHazards.push(hazard);
+  }
+
+  private recalculateSynergies() {
+    const hasPlant = this.towers.some(t => t.type === 'pomodoro');
+    const hasAqua = this.towers.some(t => t.type === 'bing');
+    const hasBeast = this.towers.some(t => t.type === 'kotaro');
+    const hasBird = this.towers.some(t => t.type === 'tripp');
+
+    this.activeSynergies.plantAqua = hasPlant && hasAqua;
+    this.activeSynergies.beastBird = hasBeast && hasBird;
+    this.activeSynergies.fullLunacia = hasPlant && hasAqua && hasBeast && hasBird;
+
+    const badges: string[] = [];
+    if (this.activeSynergies.fullLunacia) {
+      badges.push('🌟 Lunacia (+15% Vel)');
+    }
+    if (this.activeSynergies.plantAqua) {
+      badges.push('🌿💧 Floración Venenosa');
+    }
+    if (this.activeSynergies.beastBird) {
+      badges.push('🐾⚡ Caza Coordinada');
+    }
+
+    if (badges.length > 0) {
+      this.synergyPill.classList.remove('hidden');
+      this.synergyLabel.textContent = badges.join(' | ');
+    } else {
+      this.synergyPill.classList.add('hidden');
+      this.synergyLabel.textContent = '';
+    }
+  }
+
+  private renderRuneChips() {
+    this.activeRunesContainer.innerHTML = '';
+    for (const rune of this.activeRunes) {
+      const chip = document.createElement('div');
+      chip.className = `rune-chip ${rune.rarity}`;
+      chip.title = `${rune.name}: ${rune.description}`;
+      chip.innerHTML = `${rune.icon} <span>${rune.name}</span>`;
+      this.activeRunesContainer.appendChild(chip);
+    }
+  }
+
+  private openRuneDraft() {
+    this.isDraftingRune = true;
+    sounds.playLevelUp();
+
+    const unowned = RUNE_CATALOG.filter(r => !this.activeRunes.some(ar => ar.id === r.id));
+    const shuffled = [...unowned].sort(() => 0.5 - Math.random());
+    const draftChoices = shuffled.slice(0, 3);
+
+    this.runeOptionsRow.innerHTML = '';
+    draftChoices.forEach(rune => {
+      const card = document.createElement('div');
+      card.className = `rune-card ${rune.rarity}`;
+      card.innerHTML = `
+        <div class="rune-card-rarity">${rune.rarity.toUpperCase()}</div>
+        <div class="rune-card-icon">${rune.icon}</div>
+        <div class="rune-card-name">${rune.name}</div>
+        <div class="rune-card-desc">${rune.description}</div>
+        <div class="rune-card-type">${rune.classReq ? `Clase: ${rune.classReq}` : 'Universal'}</div>
+      `;
+      card.addEventListener('click', () => {
+        this.selectRune(rune);
+      });
+      this.runeOptionsRow.appendChild(card);
+    });
+
+    this.runeModal.classList.remove('hidden');
+  }
+
+  private selectRune(rune: RuneConfig) {
+    this.activeRunes.push(rune);
+    if (rune.id === 'ancient_bulwark') {
+      this.lives = Math.min(26, this.lives + 6);
+      this.updateHUD();
+    }
+    this.renderRuneChips();
+    this.runeModal.classList.add('hidden');
+    this.isDraftingRune = false;
+    sounds.playGem();
   }
 
   private onWaveCleared() {
@@ -1089,6 +1498,11 @@ class TowerDefenseGame {
     }
 
     this.currentWaveIndex++;
+
+    // Check for Roguelite Rune Draft after Wave 3 (index 3) and Wave 7 (index 7)
+    if (this.currentWaveIndex === 3 || this.currentWaveIndex === 7) {
+      this.openRuneDraft();
+    }
 
     // Start countdown to next wave automatically!
     this.isIntermission = true;

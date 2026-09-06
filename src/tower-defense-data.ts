@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TowerType, TowerConfig, EnemyType, EnemyConfig, WaveConfig } from './tower-defense-types';
+import { TowerType, TowerConfig, EnemyType, EnemyConfig, WaveConfig, RuneConfig } from './tower-defense-types';
 
 export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
   pomodoro: {
@@ -244,5 +244,64 @@ export const TD_WAVES: WaveConfig[] = [
       { enemyType: 'boss', count: 1, interval: 1.0, delay: 4 },
       { enemyType: 'scout', count: 20, interval: 0.7, delay: 7 }
     ]
+  }
+];
+
+export const RUNE_CATALOG: RuneConfig[] = [
+  {
+    id: 'storm_rune',
+    name: 'Runa de Tormenta',
+    icon: '⚡',
+    rarity: 'rare',
+    description: 'Los críticos de Kotaro lanzan un rayo que salta a 3 quimeras cercanas infligiendo 70 de daño.'
+  },
+  {
+    id: 'frost_amulet',
+    name: 'Amuleto de Glaciación',
+    icon: '❄️',
+    rarity: 'epic',
+    description: 'Las explosiones de mortero de Bing congelan totalmente a los enemigos durante 1.0 segundo.'
+  },
+  {
+    id: 'hawkeye_rune',
+    name: 'Ojo de Halcón',
+    icon: '🏹',
+    rarity: 'rare',
+    description: 'Aumenta el alcance de visión de Tripp en un +35% y su daño base en un +25%.'
+  },
+  {
+    id: 'slp_harvest',
+    name: 'Cosecha de SLP',
+    icon: '🍯',
+    rarity: 'rare',
+    description: 'Cada quimera eliminada otorga +4 SLP adicionales al botín.'
+  },
+  {
+    id: 'celestial_fury',
+    name: 'Furia Celestial',
+    icon: '☄️',
+    rarity: 'epic',
+    description: 'El hechizo de Lluvia de Espinas reduce su tiempo de recarga a 13s y amplía su área +30%.'
+  },
+  {
+    id: 'deep_poison',
+    name: 'Espinas Virulentas',
+    icon: '💉',
+    rarity: 'rare',
+    description: 'El veneno de Pomodoro dura el doble (8s) y reduce la regeneración enemiga un 80%.'
+  },
+  {
+    id: 'ancient_bulwark',
+    name: 'Baluarte de Lunacia',
+    icon: '🛡️',
+    rarity: 'legendary',
+    description: 'Otorga inmediatamente +6 vidas extra y un escudo espiritual al Árbol Ancestral.'
+  },
+  {
+    id: 'swift_craft',
+    name: 'Ingeniería Ágil',
+    icon: '⏱️',
+    rarity: 'legendary',
+    description: 'Todas las torres se construyen y evolucionan un 45% más rápido reduciendo el tiempo de espera.'
   }
 ];

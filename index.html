@@ -28,8 +28,15 @@
 
         <div class="hud-pill slp-pill">
           <span class="pill-icon">⚡</span>
-          <span id="slp-display" class="pill-value">300 SLP</span>
+          <span id="slp-display" class="pill-value">250 SLP</span>
         </div>
+
+        <div id="synergy-pill" class="hud-pill synergy-pill hidden">
+          <span class="pill-icon">🌟</span>
+          <span id="synergy-label" class="pill-value">Sinergia</span>
+        </div>
+
+        <div id="active-runes-container" class="active-runes-container"></div>
 
         <div class="hud-controls-group">
           <button id="speed-btn" class="btn-hud-action">⏩ x1</button>
@@ -71,6 +78,25 @@
             <strong id="inspect-speed">1.8/s</strong>
           </div>
           <div class="inspect-trait" id="inspect-trait">🌿 Fuego Rápido</div>
+        </div>
+
+        <div class="inspector-section-label">🎯 Prioridad de Disparo:</div>
+        <div class="targeting-buttons-row">
+          <button class="btn-target-mode active" data-mode="first" title="Dispara a la quimera más adelantada">🏁 Primero</button>
+          <button class="btn-target-mode" data-mode="strongest" title="Prioriza al enemigo con más vida">💪 Fuerte</button>
+          <button class="btn-target-mode" data-mode="weakest" title="Remata a los enemigos con menos vida">🩸 Débil</button>
+          <button class="btn-target-mode" data-mode="fastest" title="Prioriza a los veloces en sprint">⚡ Rápido</button>
+        </div>
+
+        <div id="ultimate-status-box" class="ultimate-status-box hidden">
+          <div class="ultimate-header">
+            <span class="ultimate-title">💥 Definitiva Nv.3:</span>
+            <span id="ultimate-charge-text" class="ultimate-charge">0 / 5</span>
+          </div>
+          <div class="ultimate-track">
+            <div id="ultimate-fill" class="ultimate-fill" style="width: 0%;"></div>
+          </div>
+          <div id="ultimate-desc" class="ultimate-desc">Cargando ataque especial...</div>
         </div>
 
         <div class="inspector-actions">
@@ -160,6 +186,18 @@
 
         <button id="start-play-btn" class="btn-primary">¡DEFENDER LUNACIA!</button>
         <div class="credits-tag">Desarrollado para el evento oficial Sky Mavis Axie Vibeathon</div>
+      </div>
+    </div>
+
+    <!-- Roguelite Rune Draft Modal (Shows after waves 3 and 7) -->
+    <div id="rune-modal" class="screen-overlay hidden">
+      <div class="screen-card rune-card-modal">
+        <div class="game-badge">BENDICIÓN ANCESTRAL</div>
+        <h2 class="title">Runa Mística de Lunacia</h2>
+        <p class="subtitle">Elige 1 bendición para potenciar tu estrategia 🌟</p>
+        <div id="rune-options-row" class="rune-options-row">
+          <!-- Dynamically injected with 3 cards -->
+        </div>
       </div>
     </div>
 

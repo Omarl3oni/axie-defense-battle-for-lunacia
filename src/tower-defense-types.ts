@@ -34,6 +34,11 @@ export interface TowerInstance {
   mixer?: THREE.AnimationMixer;
   rangeMesh?: THREE.Mesh;
 
+  // Targeting & Ultimate Skill State
+  targetingMode: TargetingMode;
+  ultimateCharge: number;
+  ultimateMax: number;
+
   // Construction & Upgrade Cooldown State
   isUnderConstruction: boolean;
   constructionTimer: number;
@@ -45,6 +50,34 @@ export interface TowerInstance {
   progressBarGroup?: THREE.Group;
   progressBarFill?: THREE.Mesh;
   statusBadgeEl?: HTMLElement;
+}
+
+export type TargetingMode = 'first' | 'strongest' | 'weakest' | 'fastest';
+
+export interface RuneConfig {
+  id: string;
+  name: string;
+  icon: string;
+  rarity: 'rare' | 'epic' | 'legendary';
+  description: string;
+  classReq?: string;
+}
+
+export interface GroundHazard {
+  id: number;
+  position: THREE.Vector3;
+  radius: number;
+  duration: number;
+  maxDuration: number;
+  dps: number;
+  mesh: THREE.Mesh;
+  tickTimer: number;
+}
+
+export interface ActiveSynergies {
+  plantAqua: boolean;
+  beastBird: boolean;
+  fullLunacia: boolean;
 }
 
 export type EnemyType = 'scout' | 'warrior' | 'armored' | 'toxic' | 'boss';

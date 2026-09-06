@@ -586,6 +586,128 @@ export class Arena3D {
     }, 16);
   }
 
+  public createBloomHazardMesh(pos: THREE.Vector3, radius: number): THREE.Mesh {
+    const group = new THREE.Group();
+    const geom = new THREE.CircleGeometry(radius, 24);
+    geom.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(pos.x, 0.05, pos.z);
+
+    // Decorative inner floral ring
+    const ringGeom = new THREE.RingGeometry(radius * 0.5, radius * 0.85, 16);
+    ringGeom.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.position.y = 0.01;
+    mesh.add(ring);
+
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  public triggerTsunamiWave(pos: THREE.Vector3, radius: number) {
+    const geom = new THREE.RingGeometry(0.5, radius, 32);
+    geom.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85
+    });
+    const wave = new THREE.Mesh(geom, mat);
+    wave.position.set(pos.x, 0.15, pos.z);
+    this.scene.add(wave);
+
+    let t = 0;
+    const interval = setInterval(() => {
+      t += 0.08;
+      wave.scale.set(1 + t * 1.2, 1 + t * 1.2, 1);
+      mat.opacity = Math.max(0, 0.85 - t * 1.2);
+      if (t >= 0.8) {
+        clearInterval(interval);
+        this.scene.remove(wave);
+        geom.dispose();
+        mat.dispose();
+      }
+    }, 16);
+  }
+
+  public triggerWhirlwindSlash(pos: THREE.Vector3, radius: number) {
+    const geom = new THREE.RingGeometry(0.3, radius, 32);
+    geom.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xef4444,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9
+    });
+    const slash = new THREE.Mesh(geom, mat);
+    slash.position.set(pos.x, 0.15, pos.z);
+    this.scene.add(slash);
+
+    let t = 0;
+    const interval = setInterval(() => {
+      t += 0.1;
+      slash.scale.set(1 + t * 0.9, 1 + t * 0.9, 1);
+      slash.rotation.y += 0.3;
+      mat.opacity = Math.max(0, 0.9 - t * 1.4);
+      if (t >= 0.7) {
+        clearInterval(interval);
+        this.scene.remove(slash);
+        geom.dispose();
+        mat.dispose();
+      }
+    }, 16);
+  }
+
+  public triggerDivineBeam(start: THREE.Vector3, end: THREE.Vector3) {
+    const dir = new THREE.Vector3().subVectors(end, start);
+    const length = dir.length();
+    const geom = new THREE.CylinderGeometry(0.14, 0.14, length, 8);
+    geom.rotateX(Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffd700,
+      transparent: true,
+      opacity: 0.95
+    });
+    const beam = new THREE.Mesh(geom, mat);
+    beam.position.copy(start).addScaledVector(dir, 0.5);
+    beam.lookAt(end);
+    this.scene.add(beam);
+
+    let t = 0;
+    const interval = setInterval(() => {
+      t += 0.12;
+      mat.opacity = Math.max(0, 0.95 - t * 1.5);
+      if (t >= 0.7) {
+        clearInterval(interval);
+        this.scene.remove(beam);
+        geom.dispose();
+        mat.dispose();
+      }
+    }, 16);
+  }
+
+  public triggerChainLightning(points: THREE.Vector3[]) {
+    if (points.length < 2) return;
+    const curveGeom = new THREE.BufferGeometry().setFromPoints(points);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 3, transparent: true, opacity: 0.95 });
+    const line = new THREE.Line(curveGeom, lineMat);
+    this.scene.add(line);
+
+    setTimeout(() => {
+      this.scene.remove(line);
+      curveGeom.dispose();
+      lineMat.dispose();
+    }, 180);
+  }
+
   public onResize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
