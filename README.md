@@ -1,71 +1,70 @@
-# Axie Survivors: Lunacia Outbreak 🛡️🌾
+# Axie Auto-Tactics: Lunacia Arena 🏆⚔️
 
-**Axie Survivors: Lunacia Outbreak** es un roguelike de supervivencia 3D para navegadores web desarrollado para el evento oficial **Sky Mavis Axie Vibeathon 2026**.
+**Axie Auto-Tactics: Lunacia Arena** es un videojuego de estrategia y drafting táctico (auto-battler) 3D para navegadores web desarrollado específicamente para el evento oficial **Sky Mavis Axie Vibeathon 2026**.
 
-Inspirado en los valles de Lunacia y la esencia de **Axie Core**, el jugador toma el control de un Axie en un entorno hostil amenazado por hordas de quimeras y Sapidae descontrolados. Al sobrevivir, recoger orbes de energía y subir de nivel, el jugador puede mutar y mejorar las 6 partes corporales de su Axie en tiempo real para desatar ataques devastadores y derrotar al Jefe Quimera en el minuto 4:00.
-
----
-
-## 🎮 Jugabilidad y Controles
-
-* **Movimiento:** Teclas `W`, `A`, `S`, `D` o `Flechas del Teclado`.
-* **Móvil / Pantalla Táctil:** Arrastra el dedo por la pantalla para moverte mediante el joystick virtual automático.
-* **Auto-Ataque:** Tu Axie apunta y activa sus habilidades de forma autónoma. Tu habilidad radica en el posicionamiento, la esquiva y la sinergia de tu build.
+Inspirado en la profundidad estratégica de **Axie Core** y la adicción del bucle de drafting de títulos como *Super Auto Pets* y *Backpack Battles*, el jugador construye y gestiona un escuadrón de Axies, compra unidades en la tienda, activa sinergias de clases ancestrales de Lunacia, fusiona copias para forjar **Axies Nivel 2 Dorados** y lucha para alcanzar **10 Victorias** antes de perder sus **3 Vidas**.
 
 ---
 
-## 🧬 Sinergia con Axie Core
+## 🎮 Bucle de Juego y Mecánicas Clave
 
-Cada habilidad del juego representa fielmente una parte anatómica del universo Axie:
+### 1. Fase de Tienda y Gestión (Estrategia Pura)
+* **Economía:** Recibes 10 Monedas/Oro al inicio de cada ronda.
+* **Reclutamiento:** Compra Axies con habilidades únicas por 3 monedas cada uno.
+* **Fusión 3-en-1 (Nivel 2 Dorado ✨):** Si compras 3 copias de un mismo Axie, se fusionan automáticamente en una **versión dorada** con estadísticas multiplicadas (x1.85) y habilidades potenciadas.
+* **Reroll (🎲 1 Oro):** Refresca el catálogo de la tienda buscando la pieza clave de tu composición.
+* **Congelar (❄️ Gratis):** Bloquea las ofertas de la tienda para que permanezcan intactas en la siguiente ronda si necesitas ahorrar.
+* **Posicionamiento Táctico:**
+  * **Línea Delantera:** Tanques de alta resistencia (Planta / Reptil) para absorber los primeros impactos.
+  * **Línea Media:** Unidades de daño continuo o soporte con estados alterados (Veneno, Aturdimiento).
+  * **Línea Trasera:** Asesinos de alto impacto crítico o francotiradores que atacan a la retaguardia enemiga.
 
-1. **Cuerno (*Pocky Spikes* - Clase Planta):** Proyectiles perforantes afilados que atraviesan filas de enemigos.
-2. **Espalda (*Pumpkin Shield* - Clase Planta):** Escudos rotatorios que infligen daño continuo a cualquier monstruo que intente rodearte.
-3. **Cola (*Carrot Rocket* - Clase Planta):** Cohetes de zanahoria explosivos que impactan en grupos distantes de quimeras.
-4. **Boca (*Nutcracker Bite* - Clase Bestia):** Mordisco salvaje en cono frontal con alta probabilidad de golpe crítico.
-5. **Mejoras Pasivas Lunacianas:**
-   * *Vitalidad Lunaciana:* Aumento de vida máxima y curación instantánea.
-   * *Pluma de Pájaro:* Bonificación de velocidad de movimiento.
-   * *Furia de Bestia:* Aumento de daño base y multiplicador de crítico.
-   * *Imán de Lunacia:* Incrementa el radio de atracción de gemas y orbes.
+### 2. Sinergias de Clases Axie Core
+* 🌱 **Sinergia Planta (2x Plantas):** Todos los aliados inician la batalla con **+30 de Escudo**.
+* 🐾 **Sinergia Bestia (2x Bestias):** Todos los aliados obtienen **+25% de Probabilidad Crítica**.
+* 💧 **Sinergia Aqua / Pájaro (2x Unidades):** **+25 de Velocidad de Ataque** (atacan antes en el orden de turno).
+
+### 3. Fase de Combate (Resolución Cinematográfica)
+* Pulsa **"¡AL COMBATE!"** para enfrentar tu escuadrón contra la horda enemiga de la ronda.
+* Los Axies se atacan por orden estricto de velocidad, ejecutan animaciones 3D fluidas (`Attack`, `Skill`, `Hit`, `Death`) y calculan ventajas elementales.
+* Gana **10 Victorias** para coronarte Campeón Supremo de Lunacia.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 🛠️ Stack Tecnológico y Rendimiento (60 FPS Garantizados)
 
-* **Motor 3D:** [Three.js](https://threejs.org/) (WebGL / WebGPU nativo, 60 FPS garantizados).
+* **Rendimiento Ultraligero:** A diferencia de los juegos de hordas con cientos de entidades simultáneas, las batallas tácticas de escuadrones pequeños garantizan **60 FPS rocosos y cero lag** en cualquier portátil o teléfono móvil.
+* **Motor 3D:** [Three.js](https://threejs.org/) con shaders PBR, iluminación dinámica, sombras y rigs esqueletales duplicados con `SkeletonUtils`.
 * **Entorno y Bundler:** [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/).
-* **Audio:** Web Audio API (Sintetizador procedural de efectos de sonido y ritmo de bajo 8-bit).
-* **Físicas y Detección:** Algoritmo espacial 2.5D optimizado para más de 150 enemigos simultáneos sin caídas de framerate.
+* **Audio:** Web Audio API con sintetizador procedural de efectos sonoros y música chiptune retro (cero descargas pesadas ni problemas de CORS).
 
 ---
 
 ## ⚖️ Divulgación de Recursos, IA y Licencias (Regla 4 del Vibeathon)
 
-* **Assets 3D Oficiales:** Modelos `.glb` animados de Axie Mascots (`Pomodoro`, `Kotaro`) y enemigos `Sapidae` obtenidos del repositorio oficial de recursos del Vibeathon (`jaatster/axie-3d-assets`), bajo la licencia de evento otorgada por Sky Mavis Pte. Ltd.
-* **Uso de Asistentes de IA:** Código desarrollado en colaboración con el asistente de programación de IA Antigravity / Claude Code para la arquitectura, shaders, lógica de combate y sistemas de juego.
-* **Licencias de Animación:** No se utiliza el runtime propietario de Spine 2D; todas las animaciones se ejecutan nativamente mediante esqueletos glTF y `THREE.AnimationMixer`.
+* **Assets 3D Oficiales:** Modelos `.glb` de Axie Mascots (`Pomodoro`, `Kotaro`, `Bing`, `Tripp`, `Paladill`, `Xia`, `Kibo`) y enemigos `Sapidae` del catálogo oficial del Vibeathon (`jaatster/axie-3d-assets`), bajo la licencia de Sky Mavis Pte. Ltd.
+* **Uso de Asistentes de IA:** Desarrollado con asistencia de programación en IA (Antigravity / Claude Code) para la arquitectura de simulación de combate, tipado TypeScript y shaders.
+* **Sin Dependencias Propietarias:** Sin runtime de Spine 2D ni APIs no autorizadas; código modular y 100% web nativo.
 
 ---
 
 ## 🚀 Cómo Ejecutar el Proyecto en Local
 
-1. Clona este repositorio:
-   ```bash
-   git clone <url-del-repo>
-   cd "Proyecto Axie"
-   ```
-2. Instala las dependencias:
+1. Instalar dependencias:
    ```bash
    npm install
    ```
-3. Inicia el servidor de desarrollo local:
+2. Iniciar servidor de desarrollo:
    ```bash
    npm run dev
    ```
-4. Abre tu navegador en `http://127.0.0.1:3000`.
+3. Abrir en el navegador:
+   ```
+   http://127.0.0.1:3000
+   ```
 
-Para compilar la versión optimizada para producción:
+Para compilar la versión de producción:
 ```bash
 npm run build
 ```
-La carpeta `/dist` resultante está lista para ser desplegada directamente en Vercel, Netlify o GitHub Pages con un solo clic.
+La carpeta `/dist` está lista para ser desplegada en Vercel, Netlify o GitHub Pages con 1 clic.

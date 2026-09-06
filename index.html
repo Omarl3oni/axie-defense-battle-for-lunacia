@@ -3,134 +3,176 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Axie Survivors: Lunacia Outbreak</title>
+  <title>Axie Auto-Tactics: Lunacia Arena</title>
   <link rel="icon" href="./assets/mascots/pomodoro.glb" type="image/x-icon" />
   <link rel="stylesheet" href="./src/style.css" />
 </head>
 <body>
   <div id="game-container">
-    <!-- 3D WebGL Canvas -->
+    <!-- 3D WebGL Canvas for the Tactics Arena -->
     <div id="canvas-wrap"></div>
 
-    <!-- In-Game HUD -->
-    <div id="hud" class="hidden">
-      <!-- Top Bar -->
-      <div class="hud-top">
-        <div class="hud-stat-box">
-          <span class="hud-icon">⏱️</span>
-          <span id="timer-display">00:00</span>
-        </div>
-        <div class="hud-exp-container">
-          <div class="exp-info">
-            <span id="player-level-badge">LVL 1</span>
-            <span id="exp-text">0 / 10 EXP</span>
-          </div>
-          <div class="exp-bar-bg">
-            <div id="exp-bar-fill" class="exp-bar-fill"></div>
-          </div>
-        </div>
-        <div class="hud-stat-box">
-          <span class="hud-icon">💀</span>
-          <span id="kills-display">0</span>
-        </div>
-      </div>
-
-      <!-- Player Health & Active Parts -->
-      <div class="hud-bottom-left">
-        <div class="health-container">
-          <div class="health-label">
-            <span id="axie-name-label">Pomodoro</span>
-            <span id="hp-text">100 / 100</span>
-          </div>
-          <div class="health-bar-bg">
-            <div id="hp-bar-fill" class="hp-bar-fill"></div>
-          </div>
+    <!-- Tactics Game UI Overlay -->
+    <div id="tactics-ui">
+      <!-- Top Navigation & Stats Bar -->
+      <header class="top-stats-bar">
+        <div class="stat-pill round-pill">
+          <span class="pill-label">RONDA</span>
+          <span id="round-display" class="pill-val">1 / 10</span>
         </div>
 
-        <!-- Active Parts Inventory -->
-        <div id="parts-inventory" class="parts-inventory">
+        <div class="stat-pill wins-pill">
+          <span class="pill-icon">🏆</span>
+          <span id="wins-display" class="pill-val">0 / 10 Victorias</span>
+        </div>
+
+        <div class="stat-pill hearts-pill">
+          <span class="pill-icon">❤️</span>
+          <span id="hearts-display" class="pill-val">3</span>
+        </div>
+
+        <div class="stat-pill gold-pill">
+          <span class="pill-icon">💰</span>
+          <span id="gold-display" class="pill-val">10 Oro</span>
+        </div>
+      </header>
+
+      <!-- Synergies Floating Panel (Left) -->
+      <aside class="synergies-panel">
+        <div class="synergies-title">SINERGIAS ACTIVAS</div>
+        <div id="synergies-list" class="synergies-list">
           <!-- Dynamically populated -->
         </div>
+      </aside>
+
+      <!-- Combat Action Banner (Active during Combat) -->
+      <div id="combat-banner" class="combat-banner hidden">
+        <div id="combat-log-text" class="combat-log-text">¡Iniciando Combate!</div>
+        <button id="skip-combat-btn" class="btn-skip">⚡ Acelerar</button>
       </div>
 
-      <!-- Controls Hint -->
-      <div class="controls-hint">
-        WASD o Flechas para moverte · Auto-ataque activo
-      </div>
+      <!-- Shop & Management Zone (Bottom) -->
+      <div id="shop-container" class="shop-container">
+        <!-- Team & Bench View -->
+        <div class="squad-section">
+          <div class="squad-header">
+            <span class="squad-title">⚔️ TU ESCUADRÓN DE BATALLA (Delantero · Medio · Trasero)</span>
+            <span class="squad-hint">Haz clic en un Axie de tu banco o equipo para moverlo</span>
+          </div>
 
-      <!-- Boss Warning Banner -->
-      <div id="boss-warning" class="boss-warning hidden">
-        ⚠️ ¡ALERTA: JEFE QUIMERA APROXIMÁNDOSE! ⚠️
+          <div class="squad-slots-row">
+            <!-- 3 Battle Slots -->
+            <div class="battle-slots-group">
+              <div class="slot-box" data-type="team" data-slot="0">
+                <span class="slot-tag">1. Delantero</span>
+                <div class="slot-content empty">+ Colocar</div>
+              </div>
+              <div class="slot-box" data-type="team" data-slot="1">
+                <span class="slot-tag">2. Medio</span>
+                <div class="slot-content empty">+ Colocar</div>
+              </div>
+              <div class="slot-box" data-type="team" data-slot="2">
+                <span class="slot-tag">3. Trasero</span>
+                <div class="slot-content empty">+ Colocar</div>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="slots-divider"></div>
+
+            <!-- 4 Reserve Bench Slots -->
+            <div class="bench-slots-group">
+              <div class="slot-box bench-slot" data-type="bench" data-slot="0">
+                <span class="slot-tag">Banca 1</span>
+                <div class="slot-content empty">-</div>
+              </div>
+              <div class="slot-box bench-slot" data-type="bench" data-slot="1">
+                <span class="slot-tag">Banca 2</span>
+                <div class="slot-content empty">-</div>
+              </div>
+              <div class="slot-box bench-slot" data-type="bench" data-slot="2">
+                <span class="slot-tag">Banca 3</span>
+                <div class="slot-content empty">-</div>
+              </div>
+              <div class="slot-box bench-slot" data-type="bench" data-slot="3">
+                <span class="slot-tag">Banca 4</span>
+                <div class="slot-content empty">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shop Cards & Actions -->
+        <div class="shop-tray">
+          <!-- Shop Control Buttons -->
+          <div class="shop-controls">
+            <button id="reroll-btn" class="btn-shop-action">
+              <span class="btn-icon">🎲</span>
+              <span class="btn-text">Reroll</span>
+              <span class="btn-cost">1 💰</span>
+            </button>
+            <button id="freeze-btn" class="btn-shop-action">
+              <span class="btn-icon">❄️</span>
+              <span class="btn-text" id="freeze-text">Congelar</span>
+              <span class="btn-cost">0 💰</span>
+            </button>
+          </div>
+
+          <!-- Shop Unit Offers (4 Cards) -->
+          <div id="shop-cards" class="shop-cards">
+            <!-- Dynamically populated -->
+          </div>
+
+          <!-- Big Battle Button -->
+          <div class="shop-battle-action">
+            <button id="start-battle-btn" class="btn-battle">
+              <span class="battle-btn-icon">⚔️</span>
+              <span>¡AL COMBATE!</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Start / Character Selection Screen -->
+    <!-- Welcome / Start Overlay -->
     <div id="start-screen" class="screen-overlay">
       <div class="screen-card">
         <div class="game-badge">AXIE VIBEATHON 2026</div>
-        <h1 class="title">AXIE SURVIVORS</h1>
-        <p class="subtitle">Lunacia Outbreak</p>
+        <h1 class="title">AXIE AUTO-TACTICS</h1>
+        <p class="subtitle">Lunacia Arena</p>
         <p class="description">
-          ¡Las quimeras han invadido los valles de Lunacia! Sobrevive a las hordas, muta tus partes corporales Axie Core y derrota al jefe final.
+          ¡Construye el escuadrón definitivo! Compra Axies, combina <strong>3 copias iguales para crear un Axie Nivel 2 Dorado</strong>, activa sinergias de clase y alcanza <strong>10 Victorias</strong> antes de perder tus 3 vidas.
         </p>
-
-        <div class="character-select-title">Elige a tu Axie de partida:</div>
-        <div class="character-selection">
-          <div class="character-card selected" data-character="pomodoro">
-            <div class="char-avatar">🍅</div>
-            <div class="char-name">Pomodoro</div>
-            <div class="char-class plant-class">Clase Planta</div>
-            <div class="char-desc">+30% Salud Máxima<br/>+10% Curación Pasiva</div>
-            <div class="char-part">Arma: Semillas de Espalda</div>
-          </div>
-
-          <div class="character-card" data-character="kotaro">
-            <div class="char-avatar">🦊</div>
-            <div class="char-name">Kotaro</div>
-            <div class="char-class beast-class">Clase Bestia</div>
-            <div class="char-desc">+25% Velocidad<br/>+15% Probabilidad Crítica</div>
-            <div class="char-part">Arma: Cuchillada de Cuerno</div>
-          </div>
+        <div class="rules-quick-preview">
+          <div class="preview-item">🌱 <strong>2x Planta:</strong> +30 Escudo de Equipo</div>
+          <div class="preview-item">🐾 <strong>2x Bestia:</strong> +25% Daño Crítico</div>
+          <div class="preview-item">💧 <strong>2x Aqua/Pájaro:</strong> +25 Velocidad (Atacan primero)</div>
+          <div class="preview-item">✨ <strong>Fusión 3-en-1:</strong> Estadísticas x1.85 y habilidad mejorada</div>
         </div>
-
-        <button id="start-button" class="btn-primary">¡COMENZAR SUPERVIVENCIA!</button>
-        <div class="credits-tag">Creado para el evento oficial Sky Mavis Axie Vibeathon</div>
+        <button id="start-game-btn" class="btn-primary">¡ENTRAR A LA ARENA!</button>
+        <div class="credits-tag">Desarrollado para el evento oficial Sky Mavis Axie Vibeathon</div>
       </div>
     </div>
 
-    <!-- Level Up Modal -->
-    <div id="levelup-screen" class="screen-overlay hidden">
-      <div class="screen-card levelup-card">
-        <div class="levelup-header">
-          <span class="levelup-badge">¡SUBIDA DE NIVEL!</span>
-          <h2>Elige una Mutación Axie Core</h2>
-        </div>
-        <div id="cards-container" class="cards-container">
-          <!-- Dynamically populated with 3 upgrade cards -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Game Over / Victory Screen -->
-    <div id="gameover-screen" class="screen-overlay hidden">
+    <!-- Match Result Modal (Victory / Defeat) -->
+    <div id="result-screen" class="screen-overlay hidden">
       <div class="screen-card result-card">
         <div id="result-badge" class="result-badge">FIN DE LA PARTIDA</div>
-        <h2 id="result-title">Has Caído en Lunacia</h2>
+        <h2 id="result-title">¡Victoria Gloriosa!</h2>
+        <p id="result-subtitle" class="result-subtitle">Has conquistado las 10 rondas de la Arena.</p>
+
         <div class="results-stats">
           <div class="stat-row">
-            <span>Tiempo Sobrevivido:</span>
-            <strong id="final-time">00:00</strong>
+            <span>Victorias conseguidas:</span>
+            <strong id="final-wins">10 / 10</strong>
           </div>
           <div class="stat-row">
-            <span>Quimeras Derrotadas:</span>
-            <strong id="final-kills">0</strong>
-          </div>
-          <div class="stat-row">
-            <span>Nivel Alcanzado:</span>
-            <strong id="final-level">1</strong>
+            <span>Ronda alcanzada:</span>
+            <strong id="final-round">10</strong>
           </div>
         </div>
-        <button id="restart-button" class="btn-primary">JUGAR OTRA VEZ</button>
+
+        <button id="restart-game-btn" class="btn-primary">JUGAR OTRA PARTIDA</button>
       </div>
     </div>
   </div>

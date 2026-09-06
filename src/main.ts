@@ -1,283 +1,579 @@
-import * as THREE from 'three';
-import { Player } from './player';
-import { EnemyManager } from './enemies';
-import { CombatManager } from './combat';
-import { CharacterType, UpgradeCard } from './types';
-import { getRandomUpgrades, ALL_UPGRADES } from './cards';
+import { Arena3D } from './arena-3d';
+import { AxieUnit } from './tactics-types';
+import {
+  AXIE_DATABASE,
+  ENEMY_ROUNDS,
+  createAxieInstance
+} from './tactics-data';
+import { CombatSimulator } from './combat-sim';
 import { sounds } from './audio';
 
-enum GameState {
-  MENU,
-  PLAYING,
-  LEVELING_UP,
-  GAME_OVER,
-  VICTORY
-}
-
-class Game {
-  private container: HTMLElement;
-  private canvasWrap: HTMLElement;
-  private scene: THREE.Scene;
-  private camera: THREE.PerspectiveCamera;
-  private renderer: THREE.WebGLRenderer;
+class TacticsGame {
+  private arena: Arena3D;
   private lastTime: number = performance.now();
 
-  // Arena
-  private readonly arenaRadius = 35;
+  // Core Game State
+  private round: number = 1;
+  private wins: number = 0;
+  private hearts: number = 3;
+  private gold: number = 10;
 
-  // Game Logic
-  private state: GameState = GameState.MENU;
-  private player: Player | null = null;
-  private enemyManager: EnemyManager;
-  private combatManager: CombatManager;
-  private selectedCharacter: CharacterType = 'pomodoro';
+  private team: (AxieUnit | null)[] = [null, null, null];
+  private bench: (AxieUnit | null)[] = [null, null, null, null];
+  private shopOffers: AxieUnit[] = [];
+  private isFrozen: boolean = false;
+  private isCombatActive: boolean = false;
+  private selectedSlot: { type: 'team' | 'bench'; index: number } | null = null;
 
-  private gameTime: number = 0;
-  private kills: number = 0;
-  private upgrades: Map<string, number> = new Map();
+  // UI Element References
+  private roundDisplay = document.querySelector('#round-display') as HTMLElement;
+  private winsDisplay = document.querySelector('#wins-display') as HTMLElement;
+  private heartsDisplay = document.querySelector('#hearts-display') as HTMLElement;
+  private goldDisplay = document.querySelector('#gold-display') as HTMLElement;
+  private synergiesList = document.querySelector('#synergies-list') as HTMLElement;
+  private combatBanner = document.querySelector('#combat-banner') as HTMLElement;
+  private combatLogText = document.querySelector('#combat-log-text') as HTMLElement;
+  private shopContainer = document.querySelector('#shop-container') as HTMLElement;
+  private shopCards = document.querySelector('#shop-cards') as HTMLElement;
+  private rerollBtn = document.querySelector('#reroll-btn') as HTMLElement;
+  private freezeBtn = document.querySelector('#freeze-btn') as HTMLElement;
+  private freezeText = document.querySelector('#freeze-text') as HTMLElement;
+  private startBattleBtn = document.querySelector('#start-battle-btn') as HTMLElement;
+  private skipCombatBtn = document.querySelector('#skip-combat-btn') as HTMLElement;
 
-  // Input
-  private keys: Record<string, boolean> = {};
-  private touchStart: { x: number; y: number } | null = null;
-  private touchVector: { x: number; y: number } = { x: 0, y: 0 };
-
-  // UI Elements
-  private timerDisplay = document.querySelector('#timer-display') as HTMLElement;
-  private killsDisplay = document.querySelector('#kills-display') as HTMLElement;
-  private levelBadge = document.querySelector('#player-level-badge') as HTMLElement;
-  private expText = document.querySelector('#exp-text') as HTMLElement;
-  private expBarFill = document.querySelector('#exp-bar-fill') as HTMLElement;
-  private axieNameLabel = document.querySelector('#axie-name-label') as HTMLElement;
-  private hpText = document.querySelector('#hp-text') as HTMLElement;
-  private hpBarFill = document.querySelector('#hp-bar-fill') as HTMLElement;
-  private partsInventory = document.querySelector('#parts-inventory') as HTMLElement;
-
-  private hud = document.querySelector('#hud') as HTMLElement;
   private startScreen = document.querySelector('#start-screen') as HTMLElement;
-  private levelupScreen = document.querySelector('#levelup-screen') as HTMLElement;
-  private cardsContainer = document.querySelector('#cards-container') as HTMLElement;
-  private gameoverScreen = document.querySelector('#gameover-screen') as HTMLElement;
+  private resultScreen = document.querySelector('#result-screen') as HTMLElement;
   private resultBadge = document.querySelector('#result-badge') as HTMLElement;
   private resultTitle = document.querySelector('#result-title') as HTMLElement;
-  private finalTime = document.querySelector('#final-time') as HTMLElement;
-  private finalKills = document.querySelector('#final-kills') as HTMLElement;
-  private finalLevel = document.querySelector('#final-level') as HTMLElement;
+  private resultSubtitle = document.querySelector('#result-subtitle') as HTMLElement;
+  private finalWins = document.querySelector('#final-wins') as HTMLElement;
+  private finalRound = document.querySelector('#final-round') as HTMLElement;
 
   constructor() {
-    this.container = document.querySelector('#game-container') as HTMLElement;
-    this.canvasWrap = document.querySelector('#canvas-wrap') as HTMLElement;
+    const canvasWrap = document.querySelector('#canvas-wrap') as HTMLElement;
+    this.arena = new Arena3D(canvasWrap);
 
-    // 1. Scene Setup
-    this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0c1220);
-    this.scene.fog = new THREE.FogExp2(0x0c1220, 0.015);
-
-    // 2. Camera Setup (Top-down isometric view)
-    const aspect = window.innerWidth / window.innerHeight;
-    this.camera = new THREE.PerspectiveCamera(42, aspect, 0.1, 1000);
-    this.camera.position.set(0, 22, 20);
-    this.camera.lookAt(0, 0, 0);
-
-    // 3. WebGL Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
-    this.canvasWrap.appendChild(this.renderer.domElement);
-
-    // 4. Managers
-    this.enemyManager = new EnemyManager(this.scene);
-    this.combatManager = new CombatManager(this.scene, this.camera, this.container);
-
-    // 5. Build Arena Environment & Lighting
-    this.setupLighting();
-    this.setupArena();
-
-    // 6. Preload Enemy Templates
-    this.enemyManager.preloadTemplates().catch(console.error);
-
-    // 7. Event Listeners
-    this.setupInputs();
     this.setupUIEvents();
+    this.initPreloads();
 
-    window.addEventListener('resize', () => this.onResize());
-
-    // 8. Start Render Loop
-    this.renderer.setAnimationLoop(() => this.loop());
+    // Start 3D Render Loop
+    this.arena.renderer.setAnimationLoop(() => this.loop());
   }
 
-  private setupLighting() {
-    const ambientLight = new THREE.AmbientLight(0xdbeafe, 1.2);
-    this.scene.add(ambientLight);
-
-    const hemiLight = new THREE.HemisphereLight(0x7dd3fc, 0x142033, 1.8);
-    this.scene.add(hemiLight);
-
-    const sun = new THREE.DirectionalLight(0xfff7ed, 3.2);
-    sun.position.set(16, 28, 16);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 80;
-    sun.shadow.camera.left = -30;
-    sun.shadow.camera.right = 30;
-    sun.shadow.camera.top = 30;
-    sun.shadow.camera.bottom = -30;
-    this.scene.add(sun);
-  }
-
-  private setupArena() {
-    // Ground plane
-    const groundGeom = new THREE.CircleGeometry(this.arenaRadius + 5, 48);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x14281e, // Lunacia deep forest grass
-      roughness: 0.85,
-      metalness: 0.1
-    });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
-
-    // Subtle grid overlay for visual depth
-    const grid = new THREE.GridHelper(this.arenaRadius * 2, 40, 0x22c55e, 0x1e3a2b);
-    grid.position.y = 0.02;
-    this.scene.add(grid);
-
-    // Arena boundary pillars / ancient Lunacia stones
-    const pillarGeom = new THREE.CylinderGeometry(0.7, 0.9, 3.5, 8);
-    const pillarMat = new THREE.MeshStandardMaterial({
-      color: 0x2d3748,
-      roughness: 0.7
-    });
-
-    const count = 36;
-    for (let i = 0; i < count; i++) {
-      const angle = (i * Math.PI * 2) / count;
-      const x = Math.cos(angle) * this.arenaRadius;
-      const z = Math.sin(angle) * this.arenaRadius;
-
-      const pillar = new THREE.Mesh(pillarGeom, pillarMat);
-      pillar.position.set(x, 1.75, z);
-      pillar.castShadow = true;
-      pillar.receiveShadow = true;
-
-      // Small glowing crystal on top of pillar
-      const crystalGeom = new THREE.OctahedronGeometry(0.35);
-      const crystalMat = new THREE.MeshStandardMaterial({
-        color: 0x00f0ff,
-        emissive: 0x00b4d8,
-        roughness: 0.2
-      });
-      const crystal = new THREE.Mesh(crystalGeom, crystalMat);
-      crystal.position.set(x, 3.8, z);
-
-      this.scene.add(pillar);
-      this.scene.add(crystal);
-    }
-  }
-
-  private setupInputs() {
-    window.addEventListener('keydown', (e) => {
-      this.keys[e.code] = true;
-    });
-
-    window.addEventListener('keyup', (e) => {
-      this.keys[e.code] = false;
-    });
-
-    // Touch support for mobile
-    window.addEventListener('touchstart', (e) => {
-      if (this.state !== GameState.PLAYING) return;
-      const touch = e.touches[0];
-      this.touchStart = { x: touch.clientX, y: touch.clientY };
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (!this.touchStart || this.state !== GameState.PLAYING) return;
-      const touch = e.touches[0];
-      const dx = touch.clientX - this.touchStart.x;
-      const dy = touch.clientY - this.touchStart.y;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist > 10) {
-        this.touchVector = { x: dx / dist, y: dy / dist };
-      } else {
-        this.touchVector = { x: 0, y: 0 };
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-      this.touchStart = null;
-      this.touchVector = { x: 0, y: 0 };
-    }, { passive: true });
+  private async initPreloads() {
+    // Preload mascot and common sapidae models
+    const allModels = [
+      'pomodoro.glb',
+      'kotaro.glb',
+      'bing.glb',
+      'tripp.glb',
+      'paladill.glb',
+      'xia.glb',
+      'kibo.glb',
+      'sapidae-f-a.glb',
+      'sapidae-m-a.glb',
+      'sapidae-f-b.glb'
+    ];
+    await this.arena.preloadModels(allModels);
   }
 
   private setupUIEvents() {
-    // Character selection cards
-    const cards = document.querySelectorAll('.character-card');
-    cards.forEach((card) => {
-      card.addEventListener('click', () => {
-        cards.forEach((c) => c.classList.remove('selected'));
-        card.classList.add('selected');
-        this.selectedCharacter = card.getAttribute('data-character') as CharacterType;
-      });
+    // Welcome Start Game Button
+    const startGameBtn = document.querySelector('#start-game-btn') as HTMLElement;
+    startGameBtn.addEventListener('click', () => {
+      this.startScreen.classList.add('hidden');
+      this.resetGame();
     });
 
-    // Start Button
-    const startBtn = document.querySelector('#start-button') as HTMLElement;
-    startBtn.addEventListener('click', () => {
-      this.startGame();
-    });
-
-    // Restart Button
-    const restartBtn = document.querySelector('#restart-button') as HTMLElement;
+    // Restart Game Button
+    const restartBtn = document.querySelector('#restart-game-btn') as HTMLElement;
     restartBtn.addEventListener('click', () => {
-      this.startGame();
+      this.resultScreen.classList.add('hidden');
+      this.resetGame();
+    });
+
+    // Reroll Shop Button (1 Gold)
+    this.rerollBtn.addEventListener('click', () => {
+      if (this.isCombatActive || this.gold < 1) return;
+      this.gold -= 1;
+      sounds.playGem();
+      this.refreshShop(true);
+      this.updateHUD();
+    });
+
+    // Freeze Shop Button (Free)
+    this.freezeBtn.addEventListener('click', () => {
+      if (this.isCombatActive) return;
+      this.isFrozen = !this.isFrozen;
+      sounds.playHit();
+      this.updateShopControlsUI();
+    });
+
+    // Start Battle Button
+    this.startBattleBtn.addEventListener('click', () => {
+      if (this.isCombatActive) return;
+      this.startBattle();
+    });
+
+    // Click on Team and Bench Slots
+    const allSlotBoxes = document.querySelectorAll('.slot-box');
+    allSlotBoxes.forEach((box) => {
+      box.addEventListener('click', () => {
+        if (this.isCombatActive) return;
+        const type = box.getAttribute('data-type') as 'team' | 'bench';
+        const index = parseInt(box.getAttribute('data-slot') || '0', 10);
+        this.handleSlotClick(type, index);
+      });
     });
   }
 
-  private async startGame() {
-    this.startScreen.classList.add('hidden');
-    this.gameoverScreen.classList.add('hidden');
-    this.levelupScreen.classList.add('hidden');
-    this.hud.classList.remove('hidden');
+  private resetGame() {
+    this.round = 1;
+    this.wins = 0;
+    this.hearts = 3;
+    this.gold = 10;
+    this.isFrozen = false;
+    this.isCombatActive = false;
+    this.selectedSlot = null;
 
-    // Clean up previous state
-    if (this.player) {
-      this.scene.remove(this.player.mesh);
+    // Initial Starter Unit: Free Pomodoro in Front Slot
+    this.team = [createAxieInstance('pomodoro', 1), null, null];
+    this.bench = [null, null, null, null];
+
+    this.refreshShop(true);
+    this.updateHUD();
+    this.renderSquadUI();
+    this.arena.renderTeam('player', this.team);
+    this.arena.renderTeam('enemy', [null, null, null]);
+    sounds.startMusic();
+  }
+
+  private refreshShop(force: boolean = false) {
+    if (this.isFrozen && !force) return;
+
+    const baseKeys = Object.keys(AXIE_DATABASE);
+    this.shopOffers = [];
+
+    for (let i = 0; i < 4; i++) {
+      const randKey = baseKeys[Math.floor(Math.random() * baseKeys.length)];
+      this.shopOffers.push(createAxieInstance(randKey, 1));
     }
-    this.enemyManager.clearAll();
-    this.combatManager.clearAll();
 
-    this.gameTime = 0;
-    this.kills = 0;
-    this.upgrades.clear();
+    this.isFrozen = false;
+    this.renderShopCardsUI();
+    this.updateShopControlsUI();
+  }
 
-    // Create and load player
-    this.player = new Player(this.selectedCharacter);
-    await this.player.loadModel(this.scene);
+  private renderShopCardsUI() {
+    this.shopCards.innerHTML = '';
 
-    // Initial starter part
-    if (this.selectedCharacter === 'pomodoro') {
-      this.upgrades.set('back_pumpkin', 1);
-    } else {
-      this.upgrades.set('horn_pocky', 1);
+    this.shopOffers.forEach((unit, idx) => {
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+
+      // Check current ownership of this baseId
+      const ownedCopies = this.countOwnedCopies(unit.baseId);
+      const isFusionReady = ownedCopies === 2;
+
+      if (isFusionReady) {
+        card.classList.add('fusion-ready');
+        const banner = document.createElement('div');
+        banner.className = 'card-fusion-banner';
+        banner.textContent = '✨ ¡FUSIÓN DORADA NIVEL 2!';
+        card.appendChild(banner);
+      }
+
+      card.innerHTML += `
+        <div class="shop-card-top">
+          <div class="card-avatar">${unit.icon}</div>
+          <div class="card-meta">
+            <span class="card-title">${unit.name}</span>
+            <span class="card-class-tag class-${unit.axieClass}">${unit.classLabel}</span>
+          </div>
+        </div>
+
+        <div class="shop-card-stats">
+          <span>❤️ ${unit.hp} HP</span>
+          <span>⚔️ ${unit.attack} ATK</span>
+          <span>⚡ ${unit.speed} VEL</span>
+        </div>
+
+        <div class="shop-card-ability">${unit.abilityDesc}</div>
+
+        <div class="shop-card-bottom">
+          <span class="card-ownership-tag">${ownedCopies > 0 ? `Tienes: ${ownedCopies}/3` : ''}</span>
+          <span class="card-buy-tag">Comprar · 3 💰</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        this.buyShopUnit(idx);
+      });
+
+      this.shopCards.appendChild(card);
+    });
+  }
+
+  private countOwnedCopies(baseId: string): number {
+    let count = 0;
+    const allUnits = [...this.team, ...this.bench];
+    for (const u of allUnits) {
+      if (u && u.baseId === baseId && u.level === 1) {
+        count += u.copies;
+      }
+    }
+    return count;
+  }
+
+  private buyShopUnit(index: number) {
+    if (this.isCombatActive || this.gold < 3) return;
+    const unitToBuy = this.shopOffers[index];
+    if (!unitToBuy) return;
+
+    // Check 3-in-1 Golden Fusion
+    const ownedCopies = this.countOwnedCopies(unitToBuy.baseId);
+
+    if (ownedCopies >= 2) {
+      // Golden Fusion!
+      this.gold -= 3;
+      sounds.playLevelUp();
+
+      // Find the existing copies and merge into the first found slot
+      let targetSlotInfo: { type: 'team' | 'bench'; index: number } | null = null;
+
+      // Find first occurrence in team
+      for (let i = 0; i < this.team.length; i++) {
+        if (this.team[i]?.baseId === unitToBuy.baseId && this.team[i]?.level === 1) {
+          targetSlotInfo = { type: 'team', index: i };
+          break;
+        }
+      }
+
+      // If not in team, find in bench
+      if (!targetSlotInfo) {
+        for (let i = 0; i < this.bench.length; i++) {
+          if (this.bench[i]?.baseId === unitToBuy.baseId && this.bench[i]?.level === 1) {
+            targetSlotInfo = { type: 'bench', index: i };
+            break;
+          }
+        }
+      }
+
+      // Remove all other level 1 copies of this baseId
+      let removedOther = false;
+      for (let i = 0; i < this.team.length; i++) {
+        if (
+          targetSlotInfo &&
+          !(targetSlotInfo.type === 'team' && targetSlotInfo.index === i) &&
+          this.team[i]?.baseId === unitToBuy.baseId &&
+          this.team[i]?.level === 1
+        ) {
+          this.team[i] = null;
+          removedOther = true;
+          break;
+        }
+      }
+
+      if (!removedOther) {
+        for (let i = 0; i < this.bench.length; i++) {
+          if (
+            targetSlotInfo &&
+            !(targetSlotInfo.type === 'bench' && targetSlotInfo.index === i) &&
+            this.bench[i]?.baseId === unitToBuy.baseId &&
+            this.bench[i]?.level === 1
+          ) {
+            this.bench[i] = null;
+            break;
+          }
+        }
+      }
+
+      // Upgrade target slot to Level 2 Golden!
+      const goldenUnit = createAxieInstance(unitToBuy.baseId, 2);
+      if (targetSlotInfo) {
+        if (targetSlotInfo.type === 'team') {
+          this.team[targetSlotInfo.index] = goldenUnit;
+        } else {
+          this.bench[targetSlotInfo.index] = goldenUnit;
+        }
+      }
+
+      // Remove offer from shop
+      this.shopOffers.splice(index, 1);
+      this.updateHUD();
+      this.renderSquadUI();
+      this.renderShopCardsUI();
+      this.arena.renderTeam('player', this.team);
+      return;
     }
 
-    // Oleada inicial de quimeras para acción inmediata desde el segundo 0
-    this.enemyManager.spawnInitialWave(this.player.mesh.position, 8);
+    // Normal Purchase: Find first open bench or team slot
+    let placed = false;
+
+    // Try team first if space
+    for (let i = 0; i < this.team.length; i++) {
+      if (!this.team[i]) {
+        this.team[i] = unitToBuy;
+        placed = true;
+        break;
+      }
+    }
+
+    // Try bench if team full
+    if (!placed) {
+      for (let i = 0; i < this.bench.length; i++) {
+        if (!this.bench[i]) {
+          this.bench[i] = unitToBuy;
+          placed = true;
+          break;
+        }
+      }
+    }
+
+    if (!placed) {
+      alert('¡Tanto tu escuadrón como tu banca están llenos! Vende o mueve un Axie.');
+      return;
+    }
+
+    this.gold -= 3;
+    sounds.playShoot();
+    this.shopOffers.splice(index, 1);
 
     this.updateHUD();
-    this.updatePartsInventoryUI();
+    this.renderSquadUI();
+    this.renderShopCardsUI();
+    this.arena.renderTeam('player', this.team);
+  }
 
-    this.state = GameState.PLAYING;
-    sounds.startMusic();
+  private handleSlotClick(type: 'team' | 'bench', index: number) {
+    const list = type === 'team' ? this.team : this.bench;
+
+    // If no slot is selected currently
+    if (!this.selectedSlot) {
+      if (list[index]) {
+        this.selectedSlot = { type, index };
+        sounds.playHit();
+        this.highlightSelectedSlot();
+      }
+      return;
+    }
+
+    // If clicking the same slot: deselect
+    if (this.selectedSlot.type === type && this.selectedSlot.index === index) {
+      this.selectedSlot = null;
+      this.highlightSelectedSlot();
+      return;
+    }
+
+    // Swap units between selectedSlot and this slot
+    const fromList = this.selectedSlot.type === 'team' ? this.team : this.bench;
+    const temp = fromList[this.selectedSlot.index];
+    fromList[this.selectedSlot.index] = list[index];
+    list[index] = temp;
+
+    sounds.playShoot();
+    this.selectedSlot = null;
+    this.highlightSelectedSlot();
+
+    this.renderSquadUI();
+    this.arena.renderTeam('player', this.team);
+    this.updateSynergiesUI();
+  }
+
+  private highlightSelectedSlot() {
+    const allSlotBoxes = document.querySelectorAll('.slot-box');
+    allSlotBoxes.forEach((box) => {
+      const type = box.getAttribute('data-type');
+      const index = parseInt(box.getAttribute('data-slot') || '0', 10);
+      if (this.selectedSlot && this.selectedSlot.type === type && this.selectedSlot.index === index) {
+        box.classList.add('selected');
+      } else {
+        box.classList.remove('selected');
+      }
+    });
+  }
+
+  private renderSquadUI() {
+    // 1. Team Slots
+    this.team.forEach((unit, idx) => {
+      const box = document.querySelector(`.slot-box[data-type="team"][data-slot="${idx}"]`) as HTMLElement;
+      if (!box) return;
+      this.fillSlotBox(box, unit, `Slot ${idx + 1}`);
+    });
+
+    // 2. Bench Slots
+    this.bench.forEach((unit, idx) => {
+      const box = document.querySelector(`.slot-box[data-type="bench"][data-slot="${idx}"]`) as HTMLElement;
+      if (!box) return;
+      this.fillSlotBox(box, unit, `Banca ${idx + 1}`);
+    });
+
+    this.updateSynergiesUI();
+  }
+
+  private fillSlotBox(box: HTMLElement, unit: AxieUnit | null, defaultTag: string) {
+    box.innerHTML = `<span class="slot-tag">${defaultTag}</span>`;
+
+    if (!unit) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'slot-content empty';
+      emptyEl.textContent = defaultTag.startsWith('Slot') ? '+ Colocar' : '-';
+      box.appendChild(emptyEl);
+    } else {
+      const card = document.createElement('div');
+      card.className = 'slot-unit-card';
+      card.innerHTML = `
+        <div class="slot-avatar">${unit.icon}</div>
+        <div class="slot-details">
+          <span class="slot-name ${unit.level === 2 ? 'golden' : ''}">${unit.name}</span>
+          <span class="slot-stats">❤️${unit.hp} ⚔️${unit.attack}</span>
+          ${unit.level === 2 ? '<span class="slot-badge-gold">★ NIVEL 2</span>' : ''}
+        </div>
+      `;
+      box.appendChild(card);
+    }
+  }
+
+  private updateSynergiesUI() {
+    this.synergiesList.innerHTML = '';
+    const activeUnits = this.team.filter((u): u is AxieUnit => u !== null);
+
+    const plantCount = activeUnits.filter(u => u.axieClass === 'plant').length;
+    const beastCount = activeUnits.filter(u => u.axieClass === 'beast').length;
+    const speedCount = activeUnits.filter(u => u.axieClass === 'aqua' || u.axieClass === 'bird').length;
+
+    // Planta Synergy
+    const plantEl = document.createElement('div');
+    plantEl.className = `synergy-item ${plantCount >= 2 ? 'active' : ''}`;
+    plantEl.innerHTML = `<span>🌱 Planta (${plantCount}/2)</span> <span>${plantCount >= 2 ? '✓ +30 Escudo' : ''}</span>`;
+    this.synergiesList.appendChild(plantEl);
+
+    // Bestia Synergy
+    const beastEl = document.createElement('div');
+    beastEl.className = `synergy-item ${beastCount >= 2 ? 'active' : ''}`;
+    beastEl.innerHTML = `<span>🐾 Bestia (${beastCount}/2)</span> <span>${beastCount >= 2 ? '✓ +25% Crítico' : ''}</span>`;
+    this.synergiesList.appendChild(beastEl);
+
+    // Aqua/Pájaro Synergy
+    const speedEl = document.createElement('div');
+    speedEl.className = `synergy-item ${speedCount >= 2 ? 'active' : ''}`;
+    speedEl.innerHTML = `<span>💧 Velocidad (${speedCount}/2)</span> <span>${speedCount >= 2 ? '✓ +25 Vel' : ''}</span>`;
+    this.synergiesList.appendChild(speedEl);
+  }
+
+  private updateHUD() {
+    this.roundDisplay.textContent = `${this.round} / 10`;
+    this.winsDisplay.textContent = `🏆 ${this.wins} / 10 Victorias`;
+
+    let heartsStr = '';
+    for (let i = 0; i < this.hearts; i++) heartsStr += '❤️ ';
+    this.heartsDisplay.textContent = heartsStr.trim() || '💀 0';
+
+    this.goldDisplay.textContent = `💰 ${this.gold} Oro`;
+  }
+
+  private updateShopControlsUI() {
+    this.freezeBtn.classList.toggle('frozen', this.isFrozen);
+    this.freezeText.textContent = this.isFrozen ? '¡Congelada!' : 'Congelar';
+  }
+
+  private async startBattle() {
+    const hasUnits = this.team.some(u => u !== null);
+    if (!hasUnits) {
+      alert('¡Debes colocar al menos 1 Axie en tu escuadrón de batalla!');
+      return;
+    }
+
+    this.isCombatActive = true;
+    this.shopContainer.classList.add('hidden');
+    this.combatBanner.classList.remove('hidden');
+    this.combatLogText.textContent = `¡Comenzando combate de la Ronda ${this.round}!`;
+
+    // Fetch enemy team for this round
+    const enemyTeamRound = ENEMY_ROUNDS[Math.min(this.round - 1, ENEMY_ROUNDS.length - 1)];
+    const enemyTeam = enemyTeamRound.map(u => ({ ...u }));
+
+    // Render 3D teams
+    this.arena.renderTeam('player', this.team);
+    this.arena.renderTeam('enemy', enemyTeam);
+
+    // Simulate outcome
+    const result = CombatSimulator.simulate(this.team, enemyTeam);
+
+    // Animate Combat Action by Action
+    await this.arena.playCombatAnimation(
+      result.actions,
+      (action) => {
+        if (action.message) {
+          this.combatLogText.textContent = action.message;
+        }
+      },
+      () => {
+        this.finishBattle(result.isVictory, result.isDraw);
+      }
+    );
+  }
+
+  private finishBattle(isVictory: boolean, isDraw: boolean) {
+    if (isVictory) {
+      this.wins++;
+      sounds.playLevelUp();
+      this.combatLogText.textContent = '🎉 ¡VICTORIA DE RONDA! +1 Trofeo';
+    } else if (isDraw) {
+      this.combatLogText.textContent = '⚖️ ¡EMPATE! No se pierden vidas.';
+    } else {
+      this.hearts--;
+      sounds.playGameOver();
+      this.combatLogText.textContent = '💔 ¡DERROTA! Pierdes 1 corazón.';
+    }
+
+    this.updateHUD();
+
+    setTimeout(() => {
+      this.combatBanner.classList.add('hidden');
+      this.shopContainer.classList.remove('hidden');
+      this.isCombatActive = false;
+
+      // Check Match Victory or Match Defeat
+      if (this.wins >= 10) {
+        this.handleEndMatch(true);
+        return;
+      }
+      if (this.hearts <= 0) {
+        this.handleEndMatch(false);
+        return;
+      }
+
+      // Next Round Preparation
+      this.round++;
+      this.gold = 10;
+      this.refreshShop();
+      this.updateHUD();
+      this.arena.renderTeam('player', this.team);
+      this.arena.renderTeam('enemy', [null, null, null]);
+    }, 1800);
+  }
+
+  private handleEndMatch(isVictory: boolean) {
+    sounds.stopMusic();
+    this.resultScreen.classList.remove('hidden');
+
+    if (isVictory) {
+      sounds.playLevelUp();
+      this.resultBadge.textContent = '¡CAMPEÓN DE LUNACIA!';
+      this.resultBadge.style.color = 'var(--accent-gold)';
+      this.resultTitle.textContent = '¡10 Victorias Conseguidas!';
+      this.resultSubtitle.textContent = 'Tu escuadrón táctico ha dominado toda la arena del Vibeathon.';
+    } else {
+      sounds.playGameOver();
+      this.resultBadge.textContent = 'FIN DE LA PARTIDA';
+      this.resultBadge.style.color = 'var(--accent-beast)';
+      this.resultTitle.textContent = 'Has Sido Derrotado';
+      this.resultSubtitle.textContent = `Te has quedado sin corazones en la Ronda ${this.round}.`;
+    }
+
+    this.finalWins.textContent = `${this.wins} / 10`;
+    this.finalRound.textContent = `${this.round}`;
   }
 
   private loop() {
@@ -285,200 +581,11 @@ class Game {
     const delta = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
 
-    if (this.state === GameState.PLAYING && this.player) {
-      this.gameTime += delta;
-      this.updateTimerDisplay();
-
-      // Get Input Vector
-      let inputX = 0;
-      let inputZ = 0;
-
-      if (this.keys['KeyW'] || this.keys['ArrowUp']) inputZ -= 1;
-      if (this.keys['KeyS'] || this.keys['ArrowDown']) inputZ += 1;
-      if (this.keys['KeyA'] || this.keys['ArrowLeft']) inputX -= 1;
-      if (this.keys['KeyD'] || this.keys['ArrowRight']) inputX += 1;
-
-      // Combine with touch
-      if (this.touchVector.x !== 0 || this.touchVector.y !== 0) {
-        inputX = this.touchVector.x;
-        inputZ = this.touchVector.y;
-      }
-
-      // Update Player
-      this.player.update(delta, inputX, inputZ, this.arenaRadius);
-
-      // Smooth Camera Follow
-      const targetCamX = this.player.mesh.position.x;
-      const targetCamZ = this.player.mesh.position.z + 18;
-      this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, targetCamX, delta * 4);
-      this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, targetCamZ, delta * 4);
-      this.camera.lookAt(this.player.mesh.position.x, 0, this.player.mesh.position.z);
-
-      // Update Enemies
-      this.enemyManager.update(
-        delta,
-        this.gameTime,
-        this.player.mesh.position,
-        (pos, expVal) => {
-          this.kills++;
-          this.killsDisplay.textContent = `${this.kills}`;
-          this.combatManager.spawnGem(pos, expVal);
-        },
-        (damage) => {
-          if (!this.player) return;
-          const isDead = this.player.takeDamage(damage);
-          this.updateHUD();
-          if (isDead) {
-            this.handleGameOver(false);
-          }
-        }
-      );
-
-      // Update Combat & Weapons
-      this.combatManager.update(
-        delta,
-        this.player.mesh.position,
-        this.player.facingAngle,
-        this.player.stats,
-        this.upgrades,
-        this.enemyManager.enemies,
-        (gemVal) => {
-          if (!this.player) return;
-          const leveledUp = this.player.addExp(gemVal);
-          this.updateHUD();
-          if (leveledUp) {
-            this.triggerLevelUp();
-          }
-        }
-      );
-
-      // Check Victory condition (5 minutes survived or 300 seconds)
-      if (this.gameTime >= 300) {
-        this.handleGameOver(true);
-      }
-    }
-
-    this.renderer.render(this.scene, this.camera);
-  }
-
-  private triggerLevelUp() {
-    this.state = GameState.LEVELING_UP;
-    this.levelupScreen.classList.remove('hidden');
-
-    const options = getRandomUpgrades(this.upgrades, 3);
-    this.cardsContainer.innerHTML = '';
-
-    options.forEach((card) => {
-      const cardEl = document.createElement('div');
-      cardEl.className = 'upgrade-card';
-      cardEl.innerHTML = `
-        <div class="card-icon">${card.icon}</div>
-        <div class="card-name">${card.name}</div>
-        <div class="card-type">${card.partType}</div>
-        <div class="card-desc">${card.description}</div>
-        <div class="card-level-tag">Nivel ${card.level} / ${card.maxLevel}</div>
-      `;
-
-      cardEl.addEventListener('click', () => {
-        this.applyUpgrade(card);
-      });
-
-      this.cardsContainer.appendChild(cardEl);
-    });
-  }
-
-  private applyUpgrade(card: UpgradeCard) {
-    this.upgrades.set(card.id, card.level);
-
-    // Apply immediate passive stat buffs
-    if (this.player) {
-      if (card.id === 'plant_vitality') {
-        this.player.stats.maxHp += 30;
-        this.player.stats.hp = Math.min(this.player.stats.maxHp, this.player.stats.hp + 20);
-      } else if (card.id === 'swift_feather') {
-        this.player.stats.speed *= 1.15;
-      } else if (card.id === 'beast_fury') {
-        this.player.stats.critRate += 0.08;
-        this.player.stats.critDamage += 0.2;
-      } else if (card.id === 'gem_magnet') {
-        this.player.stats.pickupRadius *= 1.45;
-      }
-    }
-
-    this.updateHUD();
-    this.updatePartsInventoryUI();
-
-    this.levelupScreen.classList.add('hidden');
-    this.state = GameState.PLAYING;
-  }
-
-  private updateHUD() {
-    if (!this.player) return;
-
-    this.axieNameLabel.textContent = this.selectedCharacter === 'pomodoro' ? 'Pomodoro (Planta)' : 'Kotaro (Bestia)';
-    this.hpText.textContent = `${Math.round(this.player.stats.hp)} / ${this.player.stats.maxHp}`;
-    const hpPct = Math.max(0, Math.min(100, (this.player.stats.hp / this.player.stats.maxHp) * 100));
-    this.hpBarFill.style.width = `${hpPct}%`;
-
-    this.levelBadge.textContent = `LVL ${this.player.stats.level}`;
-    this.expText.textContent = `${this.player.stats.exp} / ${this.player.stats.nextLevelExp} EXP`;
-    const expPct = Math.max(0, Math.min(100, (this.player.stats.exp / this.player.stats.nextLevelExp) * 100));
-    this.expBarFill.style.width = `${expPct}%`;
-  }
-
-  private updatePartsInventoryUI() {
-    this.partsInventory.innerHTML = '';
-    for (const [id, lvl] of this.upgrades.entries()) {
-      const info = ALL_UPGRADES[id];
-      if (!info) continue;
-      const badge = document.createElement('div');
-      badge.className = 'part-badge';
-      badge.innerHTML = `<span>${info.icon}</span><span class="part-lvl">Niv.${lvl}</span>`;
-      this.partsInventory.appendChild(badge);
-    }
-  }
-
-  private updateTimerDisplay() {
-    const mins = Math.floor(this.gameTime / 60);
-    const secs = Math.floor(this.gameTime % 60);
-    this.timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  private handleGameOver(isVictory: boolean) {
-    this.state = isVictory ? GameState.VICTORY : GameState.GAME_OVER;
-    sounds.stopMusic();
-
-    if (isVictory) {
-      sounds.playLevelUp();
-      this.resultBadge.textContent = '¡VICTORIA EN LUNACIA!';
-      this.resultBadge.style.color = 'var(--accent-gold)';
-      this.resultTitle.textContent = '¡Has Purificado el Valle!';
-    } else {
-      sounds.playGameOver();
-      this.resultBadge.textContent = 'FIN DE LA PARTIDA';
-      this.resultBadge.style.color = 'var(--accent-beast)';
-      this.resultTitle.textContent = 'Has Caído en Lunacia';
-    }
-
-    const mins = Math.floor(this.gameTime / 60);
-    const secs = Math.floor(this.gameTime % 60);
-    this.finalTime.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    this.finalKills.textContent = `${this.kills}`;
-    this.finalLevel.textContent = `${this.player ? this.player.stats.level : 1}`;
-
-    this.gameoverScreen.classList.remove('hidden');
-  }
-
-  private onResize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
+    this.arena.update(delta);
   }
 }
 
 // Start Game Engine
 window.addEventListener('DOMContentLoaded', () => {
-  new Game();
+  new TacticsGame();
 });
