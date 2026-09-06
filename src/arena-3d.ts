@@ -329,22 +329,27 @@ export class Arena3D {
 
   public createTowerProgressBar(): { group: THREE.Group; fill: THREE.Mesh } {
     const group = new THREE.Group();
-    group.position.y = 2.1;
+    group.position.y = 2.4;
 
-    // Background bar
+    // Background border & bar
+    const border = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.24, 0.38),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide })
+    );
+    border.position.z = -0.01;
+    group.add(border);
+
     const bg = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.6, 0.22),
+      new THREE.PlaneGeometry(2.18, 0.32),
       new THREE.MeshBasicMaterial({ color: 0x0a101d, side: THREE.DoubleSide })
     );
-    bg.rotation.x = -Math.PI / 4;
     group.add(bg);
 
     // Fill bar
     const fill = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.54, 0.17),
+      new THREE.PlaneGeometry(2.12, 0.26),
       new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
     );
-    fill.rotation.x = -Math.PI / 4;
     fill.position.z = 0.01;
     group.add(fill);
 
@@ -425,13 +430,19 @@ export class Arena3D {
     this.rangeCircleMesh.visible = false;
   }
 
-  public showDamageNumber(worldPos: THREE.Vector3, amount: number, isCrit: boolean) {
+  public projectToScreen(worldPos: THREE.Vector3, heightOffset: number = 2.4): { x: number; y: number } {
     const screenPos = worldPos.clone();
-    screenPos.y += 1.8;
+    screenPos.y += heightOffset;
     screenPos.project(this.camera);
 
-    const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
+    return {
+      x: (screenPos.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-(screenPos.y * 0.5) + 0.5) * window.innerHeight
+    };
+  }
+
+  public showDamageNumber(worldPos: THREE.Vector3, amount: number, isCrit: boolean) {
+    const { x, y } = this.projectToScreen(worldPos, 1.8);
 
     const el = document.createElement('div');
     el.className = `damage-number ${isCrit ? 'crit' : ''}`;

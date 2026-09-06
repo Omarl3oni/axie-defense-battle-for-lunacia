@@ -420,7 +420,7 @@ body, html {
 
 .tower-card.cooldown {
   pointer-events: none;
-  filter: grayscale(0.7) brightness(0.6);
+  filter: grayscale(0.8) brightness(0.5);
   opacity: 0.85;
 }
 
@@ -428,16 +428,99 @@ body, html {
   position: absolute;
   inset: 0;
   border-radius: 12px;
-  background: rgba(10, 16, 29, 0.78);
-  backdrop-filter: blur(2px);
+  background: rgba(10, 16, 29, 0.82);
+  backdrop-filter: blur(4px);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  gap: 2px;
+  font-size: 1.6rem;
   font-weight: 900;
   color: var(--accent-aqua);
-  text-shadow: 0 0 12px rgba(0, 240, 255, 0.9);
+  text-shadow: 0 0 14px rgba(0, 240, 255, 1);
   z-index: 10;
+  border: 2px solid rgba(0, 240, 255, 0.5);
+}
+
+/* Overhead Floating Status Badge for Towers (Build & Upgrade) */
+.tower-status-badge {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgba(10, 16, 29, 0.92);
+  border: 2px solid var(--accent-aqua);
+  backdrop-filter: blur(10px);
+  padding: 6px 12px;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.4);
+  min-width: 140px;
+  font-family: inherit;
+  user-select: none;
+}
+
+.tower-status-badge.upgrading {
+  border-color: var(--accent-gold);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(255, 183, 3, 0.5);
+}
+
+.badge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.tower-status-badge.building .badge-header {
+  color: var(--accent-aqua);
+}
+
+.tower-status-badge.upgrading .badge-header {
+  color: var(--accent-gold);
+}
+
+.badge-timer {
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.badge-bar-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+.badge-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.05s linear;
+}
+
+.tower-status-badge.building .badge-bar-fill {
+  background: linear-gradient(90deg, #0284c7, var(--accent-aqua));
+  box-shadow: 0 0 10px var(--accent-aqua);
+}
+
+.tower-status-badge.upgrading .badge-bar-fill {
+  background: linear-gradient(90deg, #d97706, var(--accent-gold));
+  box-shadow: 0 0 12px var(--accent-gold);
 }
 
 .card-cost {

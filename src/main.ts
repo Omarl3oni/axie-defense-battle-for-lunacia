@@ -247,7 +247,10 @@ class TowerDefenseGame {
     this.closeInspector();
 
     // Clear Entities
-    for (const t of this.towers) this.arena.scene.remove(t.mesh);
+    for (const t of this.towers) {
+      this.removeStatusBadge(t);
+      this.arena.scene.remove(t.mesh);
+    }
     for (const e of this.enemies) this.arena.scene.remove(e.mesh);
     for (const p of this.projectiles) this.arena.scene.remove(p.mesh);
 
@@ -481,6 +484,46 @@ class TowerDefenseGame {
     this.openInspector(tower);
   }
 
+  private createOrUpdateStatusBadge(tower: TowerInstance, text: string, timer: number, progress: number, type: 'building' | 'upgrading') {
+    let badge = tower.statusBadgeEl;
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = `tower-status-badge ${type}`;
+      badge.innerHTML = `
+        <div class="badge-header">
+          <span class="badge-label">${text}</span>
+          <span class="badge-timer">${Math.max(0, timer).toFixed(1)}s</span>
+        </div>
+        <div class="badge-bar-track">
+          <div class="badge-bar-fill" style="width: ${(progress * 100).toFixed(0)}%;"></div>
+        </div>
+      `;
+      const canvasWrap = document.querySelector('#canvas-wrap') as HTMLElement;
+      canvasWrap.appendChild(badge);
+      tower.statusBadgeEl = badge;
+    } else {
+      badge.className = `tower-status-badge ${type}`;
+      const label = badge.querySelector('.badge-label') as HTMLElement;
+      if (label && label.textContent !== text) label.textContent = text;
+      const timerEl = badge.querySelector('.badge-timer') as HTMLElement;
+      if (timerEl) timerEl.textContent = `${Math.max(0, timer).toFixed(1)}s`;
+      const fill = badge.querySelector('.badge-bar-fill') as HTMLElement;
+      if (fill) fill.style.width = `${Math.min(100, Math.max(0, progress * 100)).toFixed(0)}%`;
+    }
+
+    // Position badge directly above the tower in screen space
+    const { x, y } = this.arena.projectToScreen(tower.position, 2.7);
+    badge.style.left = `${x}px`;
+    badge.style.top = `${y}px`;
+  }
+
+  private removeStatusBadge(tower: TowerInstance) {
+    if (tower.statusBadgeEl) {
+      tower.statusBadgeEl.remove();
+      tower.statusBadgeEl = undefined;
+    }
+  }
+
   private sellSelectedTower() {
     if (!this.inspectedTower) return;
     const tower = this.inspectedTower;
@@ -492,6 +535,7 @@ class TowerDefenseGame {
 
     sounds.playGem();
 
+    this.removeStatusBadge(tower);
     this.arena.scene.remove(tower.mesh);
     this.towers = this.towers.filter(t => t.id !== tower.id);
 
@@ -691,7 +735,15 @@ class TowerDefenseGame {
       if (t.isUnderConstruction) {
         t.constructionTimer -= delta;
         const progress = Math.min(1.0, Math.max(0.01, 1 - (t.constructionTimer / t.constructionDuration)));
-        if (t.progressBarFill) t.progressBarFill.scale.set(progress, 1, 1);
+
+        // Update High-Visibility Screen-Space Badge
+        this.createOrUpdateStatusBadge(t, '🔨 CONSTRUYENDO', t.constructionTimer, progress, 'building');
+
+        // Billboard and scale in-world 3D bar
+        if (t.progressBarGroup && t.progressBarFill) {
+          t.progressBarGroup.quaternion.copy(this.arena.camera.quaternion);
+          t.progressBarFill.scale.set(progress, 1, 1);
+        }
 
         if (this.inspectedTower?.id === t.id) {
           this.inspectLevelTag.textContent = `En Construcción... (${Math.ceil(t.constructionTimer)}s)`;
@@ -701,6 +753,7 @@ class TowerDefenseGame {
 
         if (t.constructionTimer <= 0) {
           t.isUnderConstruction = false;
+          this.removeStatusBadge(t);
           if (t.progressBarGroup) t.progressBarGroup.visible = false;
           sounds.playLevelUp();
           if (this.inspectedTower?.id === t.id) this.openInspector(t);
@@ -712,7 +765,15 @@ class TowerDefenseGame {
       if (t.isUpgrading) {
         t.upgradeTimer -= delta;
         const progress = Math.min(1.0, Math.max(0.01, 1 - (t.upgradeTimer / t.upgradeDuration)));
-        if (t.progressBarFill) t.progressBarFill.scale.set(progress, 1, 1);
+
+        // Update High-Visibility Screen-Space Badge
+        this.createOrUpdateStatusBadge(t, `⚡ MEJORANDO A NV.${t.targetLevel}`, t.upgradeTimer, progress, 'upgrading');
+
+        // Billboard and scale in-world 3D bar
+        if (t.progressBarGroup && t.progressBarFill) {
+          t.progressBarGroup.quaternion.copy(this.arena.camera.quaternion);
+          t.progressBarFill.scale.set(progress, 1, 1);
+        }
 
         if (this.inspectedTower?.id === t.id) {
           this.inspectLevelTag.textContent = `Mejorando a Nivel ${t.targetLevel}...`;
@@ -722,6 +783,7 @@ class TowerDefenseGame {
 
         if (t.upgradeTimer <= 0) {
           t.isUpgrading = false;
+          this.removeStatusBadge(t);
           if (t.progressBarGroup) t.progressBarGroup.visible = false;
           t.level = t.targetLevel;
           t.damage = Math.round(t.damage * 1.65);

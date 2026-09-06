@@ -44,6 +44,7 @@ export interface TowerInstance {
   targetLevel: number;
   progressBarGroup?: THREE.Group;
   progressBarFill?: THREE.Mesh;
+  statusBadgeEl?: HTMLElement;
 }
 
 export type EnemyType = 'scout' | 'warrior' | 'armored' | 'boss';
