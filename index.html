@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Axie Survivors: Lunacia Outbreak</title>
+  <link rel="icon" href="./assets/mascots/pomodoro.glb" type="image/x-icon" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div id="game-container">
+    <!-- 3D WebGL Canvas -->
+    <div id="canvas-wrap"></div>
+
+    <!-- In-Game HUD -->
+    <div id="hud" class="hidden">
+      <!-- Top Bar -->
+      <div class="hud-top">
+        <div class="hud-stat-box">
+          <span class="hud-icon">⏱️</span>
+          <span id="timer-display">00:00</span>
+        </div>
+        <div class="hud-exp-container">
+          <div class="exp-info">
+            <span id="player-level-badge">LVL 1</span>
+            <span id="exp-text">0 / 10 EXP</span>
+          </div>
+          <div class="exp-bar-bg">
+            <div id="exp-bar-fill" class="exp-bar-fill"></div>
+          </div>
+        </div>
+        <div class="hud-stat-box">
+          <span class="hud-icon">💀</span>
+          <span id="kills-display">0</span>
+        </div>
+      </div>
+
+      <!-- Player Health & Active Parts -->
+      <div class="hud-bottom-left">
+        <div class="health-container">
+          <div class="health-label">
+            <span id="axie-name-label">Pomodoro</span>
+            <span id="hp-text">100 / 100</span>
+          </div>
+          <div class="health-bar-bg">
+            <div id="hp-bar-fill" class="hp-bar-fill"></div>
+          </div>
+        </div>
+
+        <!-- Active Parts Inventory -->
+        <div id="parts-inventory" class="parts-inventory">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Controls Hint -->
+      <div class="controls-hint">
+        WASD o Flechas para moverte · Auto-ataque activo
+      </div>
+
+      <!-- Boss Warning Banner -->
+      <div id="boss-warning" class="boss-warning hidden">
+        ⚠️ ¡ALERTA: JEFE QUIMERA APROXIMÁNDOSE! ⚠️
+      </div>
+    </div>
+
+    <!-- Start / Character Selection Screen -->
+    <div id="start-screen" class="screen-overlay">
+      <div class="screen-card">
+        <div class="game-badge">AXIE VIBEATHON 2026</div>
+        <h1 class="title">AXIE SURVIVORS</h1>
+        <p class="subtitle">Lunacia Outbreak</p>
+        <p class="description">
+          ¡Las quimeras han invadido los valles de Lunacia! Sobrevive a las hordas, muta tus partes corporales Axie Core y derrota al jefe final.
+        </p>
+
+        <div class="character-select-title">Elige a tu Axie de partida:</div>
+        <div class="character-selection">
+          <div class="character-card selected" data-character="pomodoro">
+            <div class="char-avatar">🍅</div>
+            <div class="char-name">Pomodoro</div>
+            <div class="char-class plant-class">Clase Planta</div>
+            <div class="char-desc">+30% Salud Máxima<br/>+10% Curación Pasiva</div>
+            <div class="char-part">Arma: Semillas de Espalda</div>
+          </div>
+
+          <div class="character-card" data-character="kotaro">
+            <div class="char-avatar">🦊</div>
+            <div class="char-name">Kotaro</div>
+            <div class="char-class beast-class">Clase Bestia</div>
+            <div class="char-desc">+25% Velocidad<br/>+15% Probabilidad Crítica</div>
+            <div class="char-part">Arma: Cuchillada de Cuerno</div>
+          </div>
+        </div>
+
+        <button id="start-button" class="btn-primary">¡COMENZAR SUPERVIVENCIA!</button>
+        <div class="credits-tag">Creado para el evento oficial Sky Mavis Axie Vibeathon</div>
+      </div>
+    </div>
+
+    <!-- Level Up Modal -->
+    <div id="levelup-screen" class="screen-overlay hidden">
+      <div class="screen-card levelup-card">
+        <div class="levelup-header">
+          <span class="levelup-badge">¡SUBIDA DE NIVEL!</span>
+          <h2>Elige una Mutación Axie Core</h2>
+        </div>
+        <div id="cards-container" class="cards-container">
+          <!-- Dynamically populated with 3 upgrade cards -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over / Victory Screen -->
+    <div id="gameover-screen" class="screen-overlay hidden">
+      <div class="screen-card result-card">
+        <div id="result-badge" class="result-badge">FIN DE LA PARTIDA</div>
+        <h2 id="result-title">Has Caído en Lunacia</h2>
+        <div class="results-stats">
+          <div class="stat-row">
+            <span>Tiempo Sobrevivido:</span>
+            <strong id="final-time">00:00</strong>
+          </div>
+          <div class="stat-row">
+            <span>Quimeras Derrotadas:</span>
+            <strong id="final-kills">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>Nivel Alcanzado:</span>
+            <strong id="final-level">1</strong>
+          </div>
+        </div>
+        <button id="restart-button" class="btn-primary">JUGAR OTRA VEZ</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
