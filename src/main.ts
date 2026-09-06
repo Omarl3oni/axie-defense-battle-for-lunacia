@@ -25,6 +25,13 @@ class TowerDefenseGame {
   private isWaveRunning: boolean = false;
   private gameSpeed: number = 1.0;
 
+  // Intermission (Auto-Wave Countdown) State
+  private isIntermission: boolean = true;
+  private intermissionTimer: number = 12.0;
+  private readonly initialIntermission: number = 12.0;
+  private readonly betweenWaveIntermission: number = 7.0;
+  private lastWarningSecond: number = -1;
+
   // Active Spell State
   private spellCooldown: number = 0;
   private readonly spellMaxCooldown: number = 25.0;
@@ -133,10 +140,10 @@ class TowerDefenseGame {
       sounds.playGem();
     });
 
-    // Start Wave Button
+    // Start Wave Button (Early Call)
     this.startWaveBtn.addEventListener('click', () => {
       if (this.isWaveRunning) return;
-      this.startWave();
+      this.startWave(true);
     });
 
     // Spell Button (Emergency Meteor / Thorn Bomb)
@@ -238,6 +245,9 @@ class TowerDefenseGame {
     this.isSpellAiming = false;
     this.selectedBuildType = null;
     this.cardCooldowns = { pomodoro: 0, kotaro: 0, bing: 0, tripp: 0 };
+    this.isIntermission = true;
+    this.intermissionTimer = this.initialIntermission;
+    this.lastWarningSecond = -1;
     this.arena.hidePlacementPreview();
     document.querySelectorAll('.tower-card').forEach(c => {
       c.classList.remove('selected', 'cooldown');
@@ -268,12 +278,18 @@ class TowerDefenseGame {
     this.livesDisplay.textContent = `${this.lives}`;
     this.slpDisplay.textContent = `${this.slp} SLP`;
 
-    if (!this.isWaveRunning) {
+    if (this.isIntermission) {
       this.startWaveBtn.disabled = false;
-      this.startWaveBtn.textContent = `⚔️ Iniciar Ola ${this.currentWaveIndex + 1}`;
-    } else {
+      this.startWaveBtn.className = 'btn-start-wave intermission';
+      const sec = Math.ceil(this.intermissionTimer);
+      if (sec <= 3) {
+        this.startWaveBtn.classList.add('urgent');
+      }
+      this.startWaveBtn.textContent = `⏳ Ola ${this.currentWaveIndex + 1} en ${sec}s | ⚡ Iniciar (+15⚡)`;
+    } else if (this.isWaveRunning) {
       this.startWaveBtn.disabled = true;
-      this.startWaveBtn.textContent = 'En Combate...';
+      this.startWaveBtn.className = 'btn-start-wave';
+      this.startWaveBtn.textContent = `⚔️ En Combate (Ola ${this.currentWaveIndex + 1})...`;
     }
 
     // Update Spell Cooldown UI
@@ -565,13 +581,24 @@ class TowerDefenseGame {
     this.updateHUD();
   }
 
-  private startWave() {
+  private startWave(isEarlyCall: boolean = false) {
     if (this.currentWaveIndex >= TD_WAVES.length) return;
     const wave = TD_WAVES[this.currentWaveIndex];
 
+    this.isIntermission = false;
     this.isWaveRunning = true;
     this.waveTimer = 0;
     this.waveQueue = [];
+
+    // Early call bonus
+    if (isEarlyCall) {
+      const bonus = 15;
+      this.slp += bonus;
+      sounds.playGem();
+      this.arena.showDamageNumber(new THREE.Vector3(0, 0, 0), bonus, true);
+    } else {
+      sounds.playShoot();
+    }
 
     // Queue all enemies with appropriate delays
     wave.groups.forEach(group => {
@@ -624,6 +651,23 @@ class TowerDefenseGame {
     const rawDelta = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
     const delta = rawDelta * this.gameSpeed;
+
+    // 0. Intermission Auto-Wave Countdown
+    if (this.isIntermission) {
+      this.intermissionTimer -= delta;
+
+      const sec = Math.ceil(this.intermissionTimer);
+      if (sec <= 3 && sec > 0 && sec !== this.lastWarningSecond) {
+        this.lastWarningSecond = sec;
+        sounds.playHit();
+      }
+
+      this.updateHUD();
+
+      if (this.intermissionTimer <= 0) {
+        this.startWave(false);
+      }
+    }
 
     // 1. Update Spell Cooldown
     if (this.spellCooldown > 0) {
@@ -953,6 +997,12 @@ class TowerDefenseGame {
     }
 
     this.currentWaveIndex++;
+
+    // Start countdown to next wave automatically!
+    this.isIntermission = true;
+    this.intermissionTimer = this.betweenWaveIntermission;
+    this.lastWarningSecond = -1;
+
     this.updateHUD();
   }
 
