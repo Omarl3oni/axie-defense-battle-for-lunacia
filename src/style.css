@@ -1107,3 +1107,302 @@ body, html {
   transform: scale(1.03);
   box-shadow: 0 4px 12px rgba(255, 183, 3, 0.4);
 }
+
+/* ===================================================
+   STREAMLINED START SCREEN & INTERACTIVE TUTORIAL
+   =================================================== */
+.start-card-clean {
+  max-width: 460px;
+  padding: 34px 28px;
+  text-align: center;
+}
+
+.mascots-row {
+  font-size: 2.4rem;
+  letter-spacing: 12px;
+  margin: 10px 0 12px;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.start-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 14px 0 24px;
+}
+
+.start-actions-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.btn-tutorial {
+  background: linear-gradient(135deg, #00f0ff, #0284c7);
+  color: #050b14;
+  font-weight: 900;
+  font-size: 1.05rem;
+  padding: 14px 0;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.35);
+  transition: all 0.25s ease;
+}
+
+.btn-tutorial:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(0, 240, 255, 0.55);
+}
+
+.btn-direct-play {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #e2e8f0;
+  font-weight: 800;
+  font-size: 0.92rem;
+  padding: 12px 0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-direct-play:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-color: #fff;
+}
+
+/* Tutorial Overlay Container */
+.tutorial-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2000;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.tutorial-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 10, 22, 0.6);
+  pointer-events: none;
+}
+
+/* Spotlight Highlight Box around target element */
+.tutorial-focus-box {
+  position: absolute;
+  border-radius: 16px;
+  border: 3px solid var(--accent-aqua);
+  box-shadow: 0 0 0 9999px rgba(5, 10, 22, 0.72), 0 0 30px rgba(0, 240, 255, 0.85);
+  pointer-events: none;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pulseFocus 2s infinite ease-in-out;
+  z-index: 2001;
+}
+
+@keyframes pulseFocus {
+  0%, 100% {
+    border-color: #00f0ff;
+    box-shadow: 0 0 0 9999px rgba(5, 10, 22, 0.72), 0 0 25px rgba(0, 240, 255, 0.85);
+  }
+  50% {
+    border-color: #ffb703;
+    box-shadow: 0 0 0 9999px rgba(5, 10, 22, 0.72), 0 0 35px rgba(255, 183, 3, 0.9);
+  }
+}
+
+.tutorial-pointer-arrow {
+  position: absolute;
+  font-size: 2rem;
+  color: var(--accent-aqua);
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.95);
+  pointer-events: none;
+  z-index: 2002;
+  transition: all 0.35s ease;
+  animation: bounceArrow 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes bounceArrow {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-8px) scale(1.1); }
+}
+
+/* Character Guide Dialog Card */
+.tutorial-card {
+  position: absolute;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  background: rgba(13, 20, 36, 0.97);
+  border: 1.5px solid var(--accent-aqua);
+  border-radius: 20px;
+  padding: 22px 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 240, 255, 0.28);
+  backdrop-filter: blur(18px);
+  z-index: 2003;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tutorial-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tutorial-guide-avatar {
+  font-size: 2.4rem;
+  line-height: 1;
+  animation: avatarBob 1.2s infinite ease-in-out alternate;
+}
+
+@keyframes avatarBob {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(-4px) rotate(4deg); }
+}
+
+.tutorial-guide-meta {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  margin-left: 12px;
+}
+
+.tutorial-guide-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--accent-gold);
+}
+
+.tutorial-step-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--accent-aqua);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tutorial-skip-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-muted);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tutorial-skip-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: #fff;
+}
+
+.tutorial-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.tutorial-body {
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+
+.tutorial-body strong {
+  color: #fff;
+}
+
+.tutorial-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tutorial-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tutorial-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: all 0.25s ease;
+}
+
+.tutorial-dot.active {
+  background: var(--accent-aqua);
+  width: 22px;
+  border-radius: 999px;
+  box-shadow: 0 0 8px var(--accent-aqua);
+}
+
+.tutorial-nav-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-tut-nav {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-tut-nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: #fff;
+}
+
+.btn-tut-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-tut-nav.primary {
+  background: linear-gradient(135deg, var(--accent-aqua), #0284c7);
+  border: none;
+  color: #030a16;
+  font-weight: 900;
+  box-shadow: 0 4px 14px rgba(0, 240, 255, 0.4);
+}
+
+.btn-tut-nav.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 240, 255, 0.6);
+}
+
+.btn-tut-nav.finish {
+  background: linear-gradient(135deg, var(--accent-gold), #fb8500);
+  border: none;
+  color: #050b14;
+  font-weight: 900;
+  box-shadow: 0 4px 16px rgba(255, 183, 3, 0.45);
+}
+
+.btn-tut-nav.finish:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(255, 183, 3, 0.65);
+}

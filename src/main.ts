@@ -19,6 +19,59 @@ import {
 } from './tower-defense-data';
 import { sounds } from './audio';
 
+interface TutorialStep {
+  title: string;
+  body: string;
+  targetSelector: string | null;
+  cardPlacement: 'center' | 'below' | 'above';
+  avatar: string;
+}
+
+const TUTORIAL_STEPS: TutorialStep[] = [
+  {
+    title: '¡Bienvenida a Lunacia! 🏰',
+    body: '¡El <strong>Árbol Ancestral</strong> está en peligro! Las quimeras malignas saldrán por el portal morado y seguirán el camino de tierra para atacarlo.<br><br>¡Tu misión es defenderlo colocando a tus <strong>Axies defensores</strong> estratégicamente por el césped!',
+    targetSelector: null,
+    cardPlacement: 'center',
+    avatar: '🍅'
+  },
+  {
+    title: '⚡ Tu Energía Mágica: SLP',
+    body: 'Aquí arriba tienes tu <strong>SLP</strong> (Poción de Amor). Es el recurso mágico necesario para <strong>plantar y evolucionar</strong> a tus Axies.<br><br>Empiezas con <strong>250 SLP</strong> y ganas más cada vez que tus Axies eliminen a una quimera invasora.',
+    targetSelector: '.slp-pill',
+    cardPlacement: 'below',
+    avatar: '⚡'
+  },
+  {
+    title: '❤️ Vidas y Oleadas de Ataque',
+    body: 'Cuentas con <strong>20 vidas</strong>. Si una quimera consigue llegar al final del camino, perderás vidas.<br><br>Debes defenderte de las <strong>10 oleadas</strong> de dificultad creciente. ¡Si las resistes todas, habrás salvado Lunacia y ganado la partida!',
+    targetSelector: '.lives-pill',
+    cardPlacement: 'below',
+    avatar: '❤️'
+  },
+  {
+    title: '🐾 Invoca a tus Guerreros Axie',
+    body: 'En esta bandeja inferior eliges a tus 4 defensores:<br>• 🍅 <strong>Pomodoro</strong>: Fuego rápido de semillas y veneno.<br>• 🦊 <strong>Kotaro</strong>: Golpes críticos devastadores.<br>• 🌊 <strong>Bing</strong>: Burbujas de agua que mojan y ralentizan en área.<br>• 🪶 <strong>Tripp</strong>: Saetas divinas a gran distancia.<br><br>👉 <em>Haz clic en un Axie y luego haz clic en el césped para plantarlo. ¡Pulsa <strong>[ESC]</strong> o <strong>Clic Derecho</strong> si quieres cancelar!</em>',
+    targetSelector: '.bottom-tower-tray',
+    cardPlacement: 'above',
+    avatar: '🐾'
+  },
+  {
+    title: '☄️ Hechizo y Mejoras de Nivel',
+    body: '• <strong>Hechizo de Emergencia:</strong> Si se te amontonan muchos monstruos a la vez, pulsa este botón para lanzar la <strong>Lluvia de Espinas</strong> ☄️ y arrasar la zona.<br><br>• <strong>Mejoras e Inspector:</strong> Haz clic sobre cualquier Axie colocado en el césped para <strong>subirlo de nivel</strong> (¡desbloquean superpoderes al nivel 3!) y cambiar su prioridad de disparo.',
+    targetSelector: '.spell-container',
+    cardPlacement: 'below',
+    avatar: '☄️'
+  },
+  {
+    title: '⚔️ ¡Todo Listo para la Batalla!',
+    body: 'Las oleadas saldrán automáticamente con una cuenta regresiva. Si colocaste tus Axies y estás lista antes de tiempo, pulsa <strong>\'Iniciar Oleada\'</strong> para ganar SLP extra de bonificación.<br><br>¡Mucha suerte, Comandante! ¡A defender Lunacia!',
+    targetSelector: '#start-wave-btn',
+    cardPlacement: 'below',
+    avatar: '🌟'
+  }
+];
+
 class TowerDefenseGame {
   private arena: Arena3D;
   private lastTime: number = performance.now();
@@ -121,6 +174,22 @@ class TowerDefenseGame {
   private finalWave = document.querySelector('#final-wave') as HTMLElement;
   private finalLives = document.querySelector('#final-lives') as HTMLElement;
 
+  // Tutorial Elements & State
+  private tutorialOverlay = document.querySelector('#tutorial-overlay') as HTMLElement;
+  private tutorialFocusBox = document.querySelector('#tutorial-focus-box') as HTMLElement;
+  private tutorialPointerArrow = document.querySelector('#tutorial-pointer-arrow') as HTMLElement;
+  private tutorialCard = document.querySelector('#tutorial-card') as HTMLElement;
+  private tutorialTitle = document.querySelector('#tutorial-title') as HTMLElement;
+  private tutorialBody = document.querySelector('#tutorial-body') as HTMLElement;
+  private tutorialStepTag = document.querySelector('#tutorial-step-tag') as HTMLElement;
+  private tutorialGuideAvatar = document.querySelector('.tutorial-guide-avatar') as HTMLElement;
+  private tutorialDots = document.querySelector('#tutorial-dots') as HTMLElement;
+  private tutorialPrevBtn = document.querySelector('#tutorial-prev-btn') as HTMLButtonElement;
+  private tutorialNextBtn = document.querySelector('#tutorial-next-btn') as HTMLButtonElement;
+  private tutorialSkipBtn = document.querySelector('#tutorial-skip-btn') as HTMLButtonElement;
+  private currentTutorialStep: number = 0;
+  private isTutorialActive: boolean = false;
+
   constructor() {
     const canvasWrap = document.querySelector('#canvas-wrap') as HTMLElement;
     this.arena = new Arena3D(canvasWrap);
@@ -146,13 +215,40 @@ class TowerDefenseGame {
   }
 
   private setupUIEvents() {
-    // Start Welcome Button
+    // Start Welcome / Tutorial Buttons
+    const startTutorialBtn = document.querySelector('#start-tutorial-btn') as HTMLElement;
+    if (startTutorialBtn) {
+      startTutorialBtn.addEventListener('click', () => {
+        this.startTutorial();
+      });
+    }
+
     const startPlayBtn = document.querySelector('#start-play-btn') as HTMLElement;
     startPlayBtn.addEventListener('click', () => {
       this.isGameStarted = true;
       this.startScreen.classList.add('hidden');
+      localStorage.setItem('axie_td_tutorial_seen', 'true');
       this.resetGame();
     });
+
+    // Top HUD Tutorial Replay Button
+    const tutorialHudBtn = document.querySelector('#tutorial-hud-btn') as HTMLElement;
+    if (tutorialHudBtn) {
+      tutorialHudBtn.addEventListener('click', () => {
+        this.startTutorial();
+      });
+    }
+
+    // Tutorial Navigation Buttons
+    if (this.tutorialNextBtn) {
+      this.tutorialNextBtn.addEventListener('click', () => this.nextTutorialStep());
+    }
+    if (this.tutorialPrevBtn) {
+      this.tutorialPrevBtn.addEventListener('click', () => this.prevTutorialStep());
+    }
+    if (this.tutorialSkipBtn) {
+      this.tutorialSkipBtn.addEventListener('click', () => this.finishTutorial());
+    }
 
     // Restart Game Button
     const restartBtn = document.querySelector('#restart-game-btn') as HTMLElement;
@@ -244,9 +340,13 @@ class TowerDefenseGame {
       });
     });
 
-    // Keyboard ESC shortcut to cancel tower placement or close inspector
+    // Keyboard ESC shortcut to cancel tower placement, tutorial or close inspector
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        if (this.isTutorialActive) {
+          this.finishTutorial();
+          return;
+        }
         if (this.selectedBuildType || this.isSpellAiming) {
           this.deselectBuildType();
           this.isSpellAiming = false;
@@ -260,6 +360,10 @@ class TowerDefenseGame {
 
     // Right-click (Context Menu) shortcut to cancel tower placement or close inspector
     window.addEventListener('contextmenu', (e) => {
+      if (this.isTutorialActive) {
+        e.preventDefault();
+        return;
+      }
       if (this.selectedBuildType || this.isSpellAiming) {
         e.preventDefault();
         this.deselectBuildType();
@@ -277,6 +381,154 @@ class TowerDefenseGame {
 
     // Canvas 3D Click Handling
     window.addEventListener('click', (e) => this.onCanvasClick(e));
+
+    // Resize listener to reposition tutorial elements
+    window.addEventListener('resize', () => {
+      if (this.isTutorialActive) {
+        this.positionTutorialElements();
+      }
+    });
+
+    // Auto-launch interactive tutorial on first visit
+    if (!localStorage.getItem('axie_td_tutorial_seen')) {
+      setTimeout(() => {
+        this.startTutorial();
+      }, 350);
+    }
+  }
+
+  private startTutorial() {
+    this.isTutorialActive = true;
+    this.currentTutorialStep = 0;
+    this.startScreen.classList.add('hidden');
+    this.tutorialOverlay.classList.remove('hidden');
+    this.closeInspector();
+    this.deselectBuildType();
+    sounds.playGem();
+    this.renderTutorialStep(0);
+  }
+
+  private renderTutorialStep(index: number) {
+    const step = TUTORIAL_STEPS[index];
+    if (!step) return;
+
+    this.tutorialGuideAvatar.textContent = step.avatar;
+    this.tutorialTitle.textContent = step.title;
+    this.tutorialBody.innerHTML = step.body;
+    this.tutorialStepTag.textContent = `Paso ${index + 1} de ${TUTORIAL_STEPS.length}`;
+
+    // Render progress dots
+    this.tutorialDots.innerHTML = '';
+    TUTORIAL_STEPS.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = `tutorial-dot ${i === index ? 'active' : ''}`;
+      this.tutorialDots.appendChild(dot);
+    });
+
+    // Previous button state
+    this.tutorialPrevBtn.disabled = index === 0;
+
+    // Next button text & styling
+    if (index === TUTORIAL_STEPS.length - 1) {
+      this.tutorialNextBtn.textContent = '⚔️ ¡A JUGAR!';
+      this.tutorialNextBtn.className = 'btn-tut-nav finish';
+    } else {
+      this.tutorialNextBtn.textContent = 'Siguiente ➡️';
+      this.tutorialNextBtn.className = 'btn-tut-nav primary';
+    }
+
+    this.positionTutorialElements();
+  }
+
+  private positionTutorialElements() {
+    const step = TUTORIAL_STEPS[this.currentTutorialStep];
+    if (!step) return;
+
+    if (!step.targetSelector) {
+      // Centered dialog
+      this.tutorialFocusBox.classList.add('hidden');
+      this.tutorialPointerArrow.classList.add('hidden');
+      this.tutorialCard.style.top = '50%';
+      this.tutorialCard.style.left = '50%';
+      this.tutorialCard.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    const targetEl = document.querySelector(step.targetSelector) as HTMLElement;
+    if (!targetEl) {
+      this.tutorialFocusBox.classList.add('hidden');
+      this.tutorialPointerArrow.classList.add('hidden');
+      this.tutorialCard.style.top = '50%';
+      this.tutorialCard.style.left = '50%';
+      this.tutorialCard.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    const rect = targetEl.getBoundingClientRect();
+    const padding = 10;
+
+    // Position and show focus box
+    this.tutorialFocusBox.classList.remove('hidden');
+    this.tutorialFocusBox.style.top = `${rect.top - padding}px`;
+    this.tutorialFocusBox.style.left = `${rect.left - padding}px`;
+    this.tutorialFocusBox.style.width = `${rect.width + padding * 2}px`;
+    this.tutorialFocusBox.style.height = `${rect.height + padding * 2}px`;
+
+    // Position pointer arrow and card
+    this.tutorialPointerArrow.classList.remove('hidden');
+
+    if (step.cardPlacement === 'below') {
+      const cardTop = rect.bottom + 26;
+      const cardLeft = Math.max(16, Math.min(window.innerWidth - 456, rect.left + rect.width / 2 - 220));
+      this.tutorialCard.style.top = `${cardTop}px`;
+      this.tutorialCard.style.left = `${cardLeft}px`;
+      this.tutorialCard.style.transform = 'none';
+
+      this.tutorialPointerArrow.textContent = '▲';
+      this.tutorialPointerArrow.style.top = `${rect.bottom + 2}px`;
+      this.tutorialPointerArrow.style.left = `${rect.left + rect.width / 2 - 14}px`;
+    } else if (step.cardPlacement === 'above') {
+      const cardTop = Math.max(16, rect.top - 280);
+      const cardLeft = Math.max(16, Math.min(window.innerWidth - 456, rect.left + rect.width / 2 - 220));
+      this.tutorialCard.style.top = `${cardTop}px`;
+      this.tutorialCard.style.left = `${cardLeft}px`;
+      this.tutorialCard.style.transform = 'none';
+
+      this.tutorialPointerArrow.textContent = '▼';
+      this.tutorialPointerArrow.style.top = `${rect.top - 34}px`;
+      this.tutorialPointerArrow.style.left = `${rect.left + rect.width / 2 - 14}px`;
+    }
+  }
+
+  private nextTutorialStep() {
+    if (this.currentTutorialStep < TUTORIAL_STEPS.length - 1) {
+      this.currentTutorialStep++;
+      this.renderTutorialStep(this.currentTutorialStep);
+      sounds.playShoot();
+    } else {
+      this.finishTutorial();
+    }
+  }
+
+  private prevTutorialStep() {
+    if (this.currentTutorialStep > 0) {
+      this.currentTutorialStep--;
+      this.renderTutorialStep(this.currentTutorialStep);
+      sounds.playHit();
+    }
+  }
+
+  private finishTutorial() {
+    this.isTutorialActive = false;
+    this.tutorialOverlay.classList.add('hidden');
+    localStorage.setItem('axie_td_tutorial_seen', 'true');
+    sounds.playLevelUp();
+
+    if (!this.isGameStarted) {
+      this.isGameStarted = true;
+      this.startScreen.classList.add('hidden');
+      this.resetGame();
+    }
   }
 
   private deselectBuildType() {

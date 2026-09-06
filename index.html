@@ -39,6 +39,7 @@
         <div id="active-runes-container" class="active-runes-container"></div>
 
         <div class="hud-controls-group">
+          <button id="tutorial-hud-btn" class="btn-hud-action" title="Ver Tutorial">❓ Tutorial</button>
           <button id="music-btn" class="btn-hud-action" title="Música On/Off">🎵</button>
           <button id="speed-btn" class="btn-hud-action">⏩ x1</button>
           <button id="start-wave-btn" class="btn-start-wave">⚔️ ¡INICIAR OLEADA!</button>
@@ -163,33 +164,53 @@
 
     <!-- Start / Welcome Screen -->
     <div id="start-screen" class="screen-overlay">
-      <div class="screen-card">
+      <div class="screen-card start-card-clean">
         <div class="game-badge">AXIE VIBEATHON 2026</div>
+        <div class="mascots-row">🍅 🦊 🌊 🪶</div>
         <h1 class="title">AXIE DEFENSE</h1>
         <p class="subtitle">Battle for Lunacia 🏰</p>
-        <p class="description">
-          ¡Las hordas de quimeras avanzan hacia el Árbol Ancestral de Lunacia! Coloca tus torres Axie libremente por el césped, combínalas con estrategia y sobrevive a las <strong>10 oleadas</strong>.
+        <p class="description start-desc">
+          ¡Las quimeras malignas avanzan hacia el <strong>Árbol Ancestral</strong>! Coloca a tus Axies estratégicamente por el césped, usa sus sinergias mágicas y sobrevive a las 10 oleadas invasoras.
         </p>
 
-        <div class="guide-title">🛡️ Tus Defensores Axie:</div>
-        <div class="roles-guide">
-          <div class="guide-box">🍅 <strong>Pomodoro:</strong> Fuego continuo de semillas y veneno.</div>
-          <div class="guide-box">🦊 <strong>Kotaro:</strong> Daño masivo y golpes críticos contra blindados.</div>
-          <div class="guide-box">🌊 <strong>Bing:</strong> Mortero de agua con daño en área y ralentización.</div>
-          <div class="guide-box">🪶 <strong>Tripp:</strong> Francotirador de largo alcance para quimeras adelantadas.</div>
+        <div class="start-actions-row">
+          <button id="start-tutorial-btn" class="btn-primary btn-tutorial">🎓 CÓMO JUGAR (TUTORIAL)</button>
+          <button id="start-play-btn" class="btn-secondary btn-direct-play">⚔️ JUGAR DIRECTAMENTE</button>
+        </div>
+        <div class="credits-tag">Creado con cariño para el evento oficial Sky Mavis Axie Vibeathon</div>
+      </div>
+    </div>
+
+    <!-- Interactive Step-by-Step Guided Tutorial Overlay -->
+    <div id="tutorial-overlay" class="tutorial-overlay hidden">
+      <div id="tutorial-backdrop" class="tutorial-backdrop"></div>
+      <!-- Glowing Spotlight Box around target element -->
+      <div id="tutorial-focus-box" class="tutorial-focus-box hidden"></div>
+      <div id="tutorial-pointer-arrow" class="tutorial-pointer-arrow hidden">▼</div>
+
+      <!-- Character Guide Dialog Card -->
+      <div id="tutorial-card" class="tutorial-card">
+        <div class="tutorial-card-header">
+          <div class="tutorial-guide-avatar">🍅</div>
+          <div class="tutorial-guide-meta">
+            <span class="tutorial-guide-name">Pomodoro el Guía</span>
+            <span id="tutorial-step-tag" class="tutorial-step-tag">Paso 1 de 6</span>
+          </div>
+          <button id="tutorial-skip-btn" class="tutorial-skip-btn" title="Saltar tutorial">Saltar ⏭️</button>
         </div>
 
-        <div class="guide-title">👾 Quimeras Invasoras & Habilidades Únicas:</div>
-        <div class="roles-guide enemies-guide">
-          <div class="guide-box">⚡ <strong>Quimera Berserker (Xia):</strong> Bestia veloz con cuernos. Al caer a &lt;45% HP activa un sprint desesperado.</div>
-          <div class="guide-box">🛡️ <strong>Bestia Feral (Kibo):</strong> Monstruo salvaje colosal. Posee regeneración celular (+14 HP/s).</div>
-          <div class="guide-box">🧱 <strong>Quimera Acorazada (Paladill):</strong> Blindaje impenetrable de púas. Inmune a agua/slow y absorbe 35% daño normal.</div>
-          <div class="guide-box">🧪 <strong>Quimera Tóxica (Bing):</strong> Inmune a veneno. Emite un aura ácida que acelera a aliados cercanos (+15% vel).</div>
-          <div class="guide-box">👑 <strong>Reina Ancestral (Titán Kibo):</strong> Jefa suprema con 10.000+ HP, tamaño gigante y resistencia colosal.</div>
+        <h3 id="tutorial-title" class="tutorial-title">¡Bienvenida a Lunacia!</h3>
+        <div id="tutorial-body" class="tutorial-body">
+          <!-- Dynamically populated step content -->
         </div>
 
-        <button id="start-play-btn" class="btn-primary">¡DEFENDER LUNACIA!</button>
-        <div class="credits-tag">Desarrollado para el evento oficial Sky Mavis Axie Vibeathon</div>
+        <div class="tutorial-footer">
+          <div id="tutorial-dots" class="tutorial-dots"></div>
+          <div class="tutorial-nav-buttons">
+            <button id="tutorial-prev-btn" class="btn-tut-nav">⬅️ Anterior</button>
+            <button id="tutorial-next-btn" class="btn-tut-nav primary">Siguiente ➡️</button>
+          </div>
+        </div>
       </div>
     </div>
 
