@@ -109,6 +109,8 @@ export interface TDProjectile {
   splashRadius: number;
   isSlow: boolean;
   isPoison: boolean;
+  lifeTimer: number;
+  maxLife: number;
 }
 
 export interface TowerSpot {

@@ -262,7 +262,10 @@ class TowerDefenseGame {
       this.arena.scene.remove(t.mesh);
     }
     for (const e of this.enemies) this.arena.scene.remove(e.mesh);
-    for (const p of this.projectiles) this.arena.scene.remove(p.mesh);
+    for (const p of this.projectiles) {
+      this.arena.scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+    }
 
     this.towers = [];
     this.enemies = [];
@@ -939,24 +942,40 @@ class TowerDefenseGame {
     // 5. Update Projectiles
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
+      p.lifeTimer += delta;
+
+      // Fail-safe 1: Despawn expired projectiles (cannot freeze or accumulate)
+      if (p.lifeTimer >= p.maxLife) {
+        this.arena.scene.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
       const targetEnemy = this.enemies.find(e => e.id === p.targetId);
 
       if (targetEnemy) {
         p.targetLastPos.copy(targetEnemy.position);
+        p.targetLastPos.y = 0.8; // Aim at center of body, not feet!
       }
 
       // Move toward target position
       const dir = new THREE.Vector3().subVectors(p.targetLastPos, p.mesh.position);
       const dist = dir.length();
+      const moveStep = p.speed * delta;
 
-      if (dist < 0.6) {
+      // Fail-safe 2: Hit detection!
+      // If within 0.8m OR if moveStep will reach or overshoot the target this frame:
+      if (dist <= moveStep || dist < 0.8) {
         // Impact!
         this.onProjectileImpact(p, targetEnemy);
         this.arena.scene.remove(p.mesh);
+        p.mesh.geometry.dispose();
         this.projectiles.splice(i, 1);
       } else {
         dir.normalize();
-        p.mesh.position.addScaledVector(dir, p.speed * delta);
+        p.mesh.position.addScaledVector(dir, moveStep);
+        p.mesh.lookAt(p.targetLastPos);
       }
     }
 
@@ -996,19 +1015,24 @@ class TowerDefenseGame {
     const isCrit = tower.type === 'kotaro' && Math.random() < 0.38;
     const finalDmg = isCrit ? Math.round(tower.damage * 2.5) : tower.damage;
 
+    const targetPos = target.position.clone();
+    targetPos.y = 0.8;
+
     this.projectiles.push({
       id: this.nextProjId++,
       type: tower.type,
       mesh,
       targetId: target.id,
-      targetLastPos: target.position.clone(),
+      targetLastPos: targetPos,
       speed: tower.type === 'tripp' ? 32 : 18,
       damage: finalDmg,
       isCrit,
       isSplash: tower.type === 'bing',
       splashRadius: 2.8,
       isSlow: tower.type === 'bing',
-      isPoison: tower.type === 'pomodoro' && tower.level >= 2
+      isPoison: tower.type === 'pomodoro' && tower.level >= 2,
+      lifeTimer: 0,
+      maxLife: 2.5
     });
   }
 
