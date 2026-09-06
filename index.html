@@ -3,153 +3,152 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Axie Auto-Tactics: Lunacia Arena</title>
+  <title>Axie Defense: Battle for Lunacia</title>
   <link rel="icon" href="./assets/mascots/pomodoro.glb" type="image/x-icon" />
   <link rel="stylesheet" href="./src/style.css" />
 </head>
 <body>
   <div id="game-container">
-    <!-- 3D WebGL Canvas for the Tactics Arena -->
+    <!-- 3D WebGL Canvas -->
     <div id="canvas-wrap"></div>
 
-    <!-- Tactics Game UI Overlay -->
-    <div id="tactics-ui">
-      <!-- Top Navigation & Stats Bar -->
-      <header class="top-stats-bar">
-        <div class="stat-pill round-pill">
-          <span class="pill-label">RONDA</span>
-          <span id="round-display" class="pill-val">1 / 10</span>
+    <!-- Tower Defense HUD Overlay -->
+    <div id="td-ui">
+      <!-- Top Bar: Wave, Lives, SLP, Speed, Wave Trigger -->
+      <header class="top-hud-bar">
+        <div class="hud-pill wave-pill">
+          <span class="pill-title">OLEADA</span>
+          <span id="wave-display" class="pill-value">1 / 10</span>
         </div>
 
-        <div class="stat-pill wins-pill">
-          <span class="pill-icon">🏆</span>
-          <span id="wins-display" class="pill-val">0 / 10 Victorias</span>
-        </div>
-
-        <div class="stat-pill hearts-pill">
+        <div class="hud-pill lives-pill">
           <span class="pill-icon">❤️</span>
-          <span id="hearts-display" class="pill-val">3</span>
+          <span id="lives-display" class="pill-value">20</span>
         </div>
 
-        <div class="stat-pill gold-pill">
-          <span class="pill-icon">💰</span>
-          <span id="gold-display" class="pill-val">10 Oro</span>
+        <div class="hud-pill slp-pill">
+          <span class="pill-icon">⚡</span>
+          <span id="slp-display" class="pill-value">300 SLP</span>
+        </div>
+
+        <div class="hud-controls-group">
+          <button id="speed-btn" class="btn-hud-action">⏩ x1</button>
+          <button id="start-wave-btn" class="btn-start-wave">⚔️ ¡INICIAR OLEADA!</button>
         </div>
       </header>
 
-      <!-- Synergies Floating Panel (Left) -->
-      <aside class="synergies-panel">
-        <div class="synergies-title">SINERGIAS ACTIVAS</div>
-        <div id="synergies-list" class="synergies-list">
-          <!-- Dynamically populated -->
-        </div>
-      </aside>
-
-      <!-- Combat Action Banner (Active during Combat) -->
-      <div id="combat-banner" class="combat-banner hidden">
-        <div id="combat-log-text" class="combat-log-text">¡Iniciando Combate!</div>
-        <button id="skip-combat-btn" class="btn-skip">⚡ Acelerar</button>
+      <!-- Active Emergency Spell Button (Floating Right) -->
+      <div class="spell-container">
+        <button id="spell-btn" class="btn-spell" title="Lanza una lluvia de espinas destructiva en cualquier punto del camino">
+          <span class="spell-icon">☄️</span>
+          <span class="spell-label">Lluvia de Espinas</span>
+          <div id="spell-cooldown-overlay" class="spell-cooldown-overlay hidden"></div>
+        </button>
       </div>
 
-      <!-- Shop & Management Zone (Bottom) -->
-      <div id="shop-container" class="shop-container">
-        <!-- Team & Bench View -->
-        <div class="squad-section">
-          <div class="squad-header">
-            <span class="squad-title">⚔️ TU ESCUADRÓN DE BATALLA (Delantero · Medio · Trasero)</span>
-            <span class="squad-hint">Haz clic en un Axie de tu banco o equipo para moverlo</span>
+      <!-- Tower Inspector Modal (Shows when clicking an existing tower) -->
+      <div id="inspector-modal" class="inspector-modal hidden">
+        <div class="inspector-header">
+          <div class="inspector-avatar" id="inspect-avatar">🍅</div>
+          <div class="inspector-meta">
+            <h3 id="inspect-name">Pomodoro</h3>
+            <span id="inspect-level-tag" class="level-tag">Nivel 1</span>
           </div>
-
-          <div class="squad-slots-row">
-            <!-- 3 Battle Slots -->
-            <div class="battle-slots-group">
-              <div class="slot-box" data-type="team" data-slot="0">
-                <span class="slot-tag">1. Delantero</span>
-                <div class="slot-content empty">+ Colocar</div>
-              </div>
-              <div class="slot-box" data-type="team" data-slot="1">
-                <span class="slot-tag">2. Medio</span>
-                <div class="slot-content empty">+ Colocar</div>
-              </div>
-              <div class="slot-box" data-type="team" data-slot="2">
-                <span class="slot-tag">3. Trasero</span>
-                <div class="slot-content empty">+ Colocar</div>
-              </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="slots-divider"></div>
-
-            <!-- 4 Reserve Bench Slots -->
-            <div class="bench-slots-group">
-              <div class="slot-box bench-slot" data-type="bench" data-slot="0">
-                <span class="slot-tag">Banca 1</span>
-                <div class="slot-content empty">-</div>
-              </div>
-              <div class="slot-box bench-slot" data-type="bench" data-slot="1">
-                <span class="slot-tag">Banca 2</span>
-                <div class="slot-content empty">-</div>
-              </div>
-              <div class="slot-box bench-slot" data-type="bench" data-slot="2">
-                <span class="slot-tag">Banca 3</span>
-                <div class="slot-content empty">-</div>
-              </div>
-              <div class="slot-box bench-slot" data-type="bench" data-slot="3">
-                <span class="slot-tag">Banca 4</span>
-                <div class="slot-content empty">-</div>
-              </div>
-            </div>
-          </div>
+          <button id="close-inspector-btn" class="btn-close">✕</button>
         </div>
 
-        <!-- Shop Cards & Actions -->
-        <div class="shop-tray">
-          <!-- Shop Control Buttons -->
-          <div class="shop-controls">
-            <button id="reroll-btn" class="btn-shop-action">
-              <span class="btn-icon">🎲</span>
-              <span class="btn-text">Reroll</span>
-              <span class="btn-cost">1 💰</span>
-            </button>
-            <button id="freeze-btn" class="btn-shop-action">
-              <span class="btn-icon">❄️</span>
-              <span class="btn-text" id="freeze-text">Congelar</span>
-              <span class="btn-cost">0 💰</span>
-            </button>
+        <div class="inspector-stats">
+          <div class="inspect-stat-row">
+            <span>Daño por Disparo:</span>
+            <strong id="inspect-dmg">20</strong>
           </div>
+          <div class="inspect-stat-row">
+            <span>Alcance de Visión:</span>
+            <strong id="inspect-range">6.8</strong>
+          </div>
+          <div class="inspect-stat-row">
+            <span>Velocidad de Ataque:</span>
+            <strong id="inspect-speed">1.8/s</strong>
+          </div>
+          <div class="inspect-trait" id="inspect-trait">🌿 Fuego Rápido</div>
+        </div>
 
-          <!-- Shop Unit Offers (4 Cards) -->
-          <div id="shop-cards" class="shop-cards">
-            <!-- Dynamically populated -->
-          </div>
-
-          <!-- Big Battle Button -->
-          <div class="shop-battle-action">
-            <button id="start-battle-btn" class="btn-battle">
-              <span class="battle-btn-icon">⚔️</span>
-              <span>¡AL COMBATE!</span>
-            </button>
-          </div>
+        <div class="inspector-actions">
+          <button id="upgrade-tower-btn" class="btn-upgrade">
+            <span>Mejorar</span>
+            <strong id="upgrade-cost-text">90 ⚡</strong>
+          </button>
+          <button id="sell-tower-btn" class="btn-sell">
+            <span>Vender</span>
+            <strong id="sell-refund-text">+70 ⚡</strong>
+          </button>
         </div>
       </div>
+
+      <!-- Bottom Tower Placement Tray -->
+      <footer class="bottom-tower-tray">
+        <div class="tray-instructions">
+          Elige una torre Axie y haz clic en una plataforma vacía del mapa:
+        </div>
+
+        <div class="tower-cards-row">
+          <!-- Pomodoro -->
+          <div class="tower-card" data-tower="pomodoro">
+            <div class="card-cost">100 ⚡</div>
+            <div class="card-avatar">🍅</div>
+            <div class="card-name">Pomodoro</div>
+            <div class="card-class class-plant">Planta</div>
+            <div class="card-role">Rápido & Veneno</div>
+          </div>
+
+          <!-- Kotaro -->
+          <div class="tower-card" data-tower="kotaro">
+            <div class="card-cost">150 ⚡</div>
+            <div class="card-avatar">🦊</div>
+            <div class="card-name">Kotaro</div>
+            <div class="card-class class-beast">Bestia</div>
+            <div class="card-role">Crítico & Anti-Tanque</div>
+          </div>
+
+          <!-- Bing -->
+          <div class="tower-card" data-tower="bing">
+            <div class="card-cost">175 ⚡</div>
+            <div class="card-avatar">🌊</div>
+            <div class="card-name">Bing</div>
+            <div class="card-class class-aqua">Aqua</div>
+            <div class="card-role">Splash & Ralentiza</div>
+          </div>
+
+          <!-- Tripp -->
+          <div class="tower-card" data-tower="tripp">
+            <div class="card-cost">200 ⚡</div>
+            <div class="card-avatar">🪶</div>
+            <div class="card-name">Tripp</div>
+            <div class="card-class class-bird">Pájaro</div>
+            <div class="card-role">Francotirador</div>
+          </div>
+        </div>
+      </footer>
     </div>
 
-    <!-- Welcome / Start Overlay -->
+    <!-- Start / Welcome Screen -->
     <div id="start-screen" class="screen-overlay">
       <div class="screen-card">
         <div class="game-badge">AXIE VIBEATHON 2026</div>
-        <h1 class="title">AXIE AUTO-TACTICS</h1>
-        <p class="subtitle">Lunacia Arena</p>
+        <h1 class="title">AXIE DEFENSE</h1>
+        <p class="subtitle">Battle for Lunacia 🏰</p>
         <p class="description">
-          ¡Construye el escuadrón definitivo! Compra Axies, combina <strong>3 copias iguales para crear un Axie Nivel 2 Dorado</strong>, activa sinergias de clase y alcanza <strong>10 Victorias</strong> antes de perder tus 3 vidas.
+          ¡Las hordas de quimeras avanzan hacia el Árbol Ancestral de Lunacia! Coloca torres Axie en las plataformas, combínalas con estrategia y sobrevive a las <strong>10 oleadas</strong>.
         </p>
-        <div class="rules-quick-preview">
-          <div class="preview-item">🌱 <strong>2x Planta:</strong> +30 Escudo de Equipo</div>
-          <div class="preview-item">🐾 <strong>2x Bestia:</strong> +25% Daño Crítico</div>
-          <div class="preview-item">💧 <strong>2x Aqua/Pájaro:</strong> +25 Velocidad (Atacan primero)</div>
-          <div class="preview-item">✨ <strong>Fusión 3-en-1:</strong> Estadísticas x1.85 y habilidad mejorada</div>
+
+        <div class="roles-guide">
+          <div class="guide-box">🍅 <strong>Pomodoro:</strong> Fuego continuo de semillas y veneno.</div>
+          <div class="guide-box">🦊 <strong>Kotaro:</strong> Daño masivo y golpes críticos contra blindados.</div>
+          <div class="guide-box">🌊 <strong>Bing:</strong> Mortero de agua con daño en área y ralentización.</div>
+          <div class="guide-box">🪶 <strong>Tripp:</strong> Francotirador de largo alcance para quimeras adelantadas.</div>
         </div>
-        <button id="start-game-btn" class="btn-primary">¡ENTRAR A LA ARENA!</button>
+
+        <button id="start-play-btn" class="btn-primary">¡DEFENDER LUNACIA!</button>
         <div class="credits-tag">Desarrollado para el evento oficial Sky Mavis Axie Vibeathon</div>
       </div>
     </div>
@@ -157,22 +156,22 @@
     <!-- Match Result Modal (Victory / Defeat) -->
     <div id="result-screen" class="screen-overlay hidden">
       <div class="screen-card result-card">
-        <div id="result-badge" class="result-badge">FIN DE LA PARTIDA</div>
+        <div id="result-badge" class="result-badge">RESULTADO</div>
         <h2 id="result-title">¡Victoria Gloriosa!</h2>
-        <p id="result-subtitle" class="result-subtitle">Has conquistado las 10 rondas de la Arena.</p>
+        <p id="result-subtitle" class="result-subtitle">El Árbol Ancestral de Lunacia está a salvo.</p>
 
         <div class="results-stats">
           <div class="stat-row">
-            <span>Victorias conseguidas:</span>
-            <strong id="final-wins">10 / 10</strong>
+            <span>Oleadas superadas:</span>
+            <strong id="final-wave">10 / 10</strong>
           </div>
           <div class="stat-row">
-            <span>Ronda alcanzada:</span>
-            <strong id="final-round">10</strong>
+            <span>Vidas restantes:</span>
+            <strong id="final-lives">20 / 20</strong>
           </div>
         </div>
 
-        <button id="restart-game-btn" class="btn-primary">JUGAR OTRA PARTIDA</button>
+        <button id="restart-game-btn" class="btn-primary">JUGAR OTRA VEZ</button>
       </div>
     </div>
   </div>

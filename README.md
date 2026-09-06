@@ -1,70 +1,64 @@
-# Axie Auto-Tactics: Lunacia Arena 🏆⚔️
+# Axie Defense: Battle for Lunacia 🏰🛡️
 
-**Axie Auto-Tactics: Lunacia Arena** es un videojuego de estrategia y drafting táctico (auto-battler) 3D para navegadores web desarrollado específicamente para el evento oficial **Sky Mavis Axie Vibeathon 2026**.
+**Axie Defense: Battle for Lunacia** es un videojuego **Tower Defense 3D** para navegadores web desarrollado específicamente para el evento oficial **Sky Mavis Axie Vibeathon 2026**.
 
-Inspirado en la profundidad estratégica de **Axie Core** y la adicción del bucle de drafting de títulos como *Super Auto Pets* y *Backpack Battles*, el jugador construye y gestiona un escuadrón de Axies, compra unidades en la tienda, activa sinergias de clases ancestrales de Lunacia, fusiona copias para forjar **Axies Nivel 2 Dorados** y lucha para alcanzar **10 Victorias** antes de perder sus **3 Vidas**.
-
----
-
-## 🎮 Bucle de Juego y Mecánicas Clave
-
-### 1. Fase de Tienda y Gestión (Estrategia Pura)
-* **Economía:** Recibes 10 Monedas/Oro al inicio de cada ronda.
-* **Reclutamiento:** Compra Axies con habilidades únicas por 3 monedas cada uno.
-* **Fusión 3-en-1 (Nivel 2 Dorado ✨):** Si compras 3 copias de un mismo Axie, se fusionan automáticamente en una **versión dorada** con estadísticas multiplicadas (x1.85) y habilidades potenciadas.
-* **Reroll (🎲 1 Oro):** Refresca el catálogo de la tienda buscando la pieza clave de tu composición.
-* **Congelar (❄️ Gratis):** Bloquea las ofertas de la tienda para que permanezcan intactas en la siguiente ronda si necesitas ahorrar.
-* **Posicionamiento Táctico:**
-  * **Línea Delantera:** Tanques de alta resistencia (Planta / Reptil) para absorber los primeros impactos.
-  * **Línea Media:** Unidades de daño continuo o soporte con estados alterados (Veneno, Aturdimiento).
-  * **Línea Trasera:** Asesinos de alto impacto crítico o francotiradores que atacan a la retaguardia enemiga.
-
-### 2. Sinergias de Clases Axie Core
-* 🌱 **Sinergia Planta (2x Plantas):** Todos los aliados inician la batalla con **+30 de Escudo**.
-* 🐾 **Sinergia Bestia (2x Bestias):** Todos los aliados obtienen **+25% de Probabilidad Crítica**.
-* 💧 **Sinergia Aqua / Pájaro (2x Unidades):** **+25 de Velocidad de Ataque** (atacan antes en el orden de turno).
-
-### 3. Fase de Combate (Resolución Cinematográfica)
-* Pulsa **"¡AL COMBATE!"** para enfrentar tu escuadrón contra la horda enemiga de la ronda.
-* Los Axies se atacan por orden estricto de velocidad, ejecutan animaciones 3D fluidas (`Attack`, `Skill`, `Hit`, `Death`) y calculan ventajas elementales.
-* Gana **10 Victorias** para coronarte Campeón Supremo de Lunacia.
+Inspirado en los clásicos del género como *Kingdom Rush* y *Bloons TD*, el jugador debe defender el **Árbol Ancestral de Lunacia** colocando y mejorando estratégicamente torres Axie en plataformas a lo largo de un camino sinuoso por el que avanzan oleadas de quimeras y Sapidae.
 
 ---
 
-## 🛠️ Stack Tecnológico y Rendimiento (60 FPS Garantizados)
+## 🎮 Jugabilidad y Roles Tácticos
 
-* **Rendimiento Ultraligero:** A diferencia de los juegos de hordas con cientos de entidades simultáneas, las batallas tácticas de escuadrones pequeños garantizan **60 FPS rocosos y cero lag** en cualquier portátil o teléfono móvil.
-* **Motor 3D:** [Three.js](https://threejs.org/) con shaders PBR, iluminación dinámica, sombras y rigs esqueletales duplicados con `SkeletonUtils`.
-* **Entorno y Bundler:** [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/).
-* **Audio:** Web Audio API con sintetizador procedural de efectos sonoros y música chiptune retro (cero descargas pesadas ni problemas de CORS).
+### 1. Torres Axie Defensivas
+* 🍅 **Pomodoro (Clase Planta - 100 ⚡):**
+  * *Rol:* Fuego rápido y veneno continuo.
+  * Dispara ráfagas de semillas punzantes. A partir de Nivel 2, infecta a los enemigos con esporas venenosas que infligen daño continuo ignorando armaduras.
+* 🦊 **Kotaro (Clase Bestia - 150 ⚡):**
+  * *Rol:* Asesino de tanques y daño masivo.
+  * Cuchilladas feroces con 35% de probabilidad de golpe crítico devastador (x2.5 daño). Indispensable para frenar a las quimeras acorazadas.
+* 🌊 **Bing (Clase Aqua - 175 ⚡):**
+  * *Rol:* Mortero de agua, daño en área y ralentización (*Splash & Slow*).
+  * Lanza proyectiles explosivos que impactan en grupos de monstruos, reduciendo su velocidad de avance un 45%.
+* 🪶 **Tripp (Clase Pájaro - 200 ⚡):**
+  * *Rol:* Francotirador de largo alcance.
+  * Cobertura de casi todo el mapa; prioriza a las quimeras más adelantadas que intentan escapar hacia el Árbol Ancestral.
+
+### 2. Inspección y Mejoras de Torre
+* Haz clic en cualquier torre construida para ver su **círculo de rango 3D** en el suelo.
+* **Mejorar (Nivel 2 y Nivel 3):** Aumenta el daño en +65%, expande el rango y desbloquea auras luminosas y doradas.
+* **Vender:** Recupera el 70% del valor total invertido en cualquier momento.
+
+### 3. Poder Activo de Emergencia
+* ☄️ **Lluvia de Espinas (Cooldown 25s):**
+  * Activa la habilidad y haz clic en cualquier parte del camino para descargar un bombardeo de 180 de daño en área contra aglomeraciones de quimeras.
+
+### 4. 10 Oleadas y Control de Velocidad
+* **Control de Oleadas:** Decide cuándo empezar cada ola con el botón "¡INICIAR OLEADA!".
+* **Velocidad de Juego (⏩ x1 / x2):** Acelera el combate para un ritmo más trepidante.
+* **Ola 10:** El enfrentamiento final contra la **Reina Quimera Ancestral**.
+
+---
+
+## 🛠️ Stack Tecnológico (60 FPS Garantizados)
+
+* **Cero Lag:** A diferencia de los juegos de supervivencia con colisiones erráticas, los enemigos siguen una trayectoria de waypoints limpia mediante curvas Catmull-Rom. El consumo de CPU/GPU es mínimo y mantiene **60 FPS rocosos en cualquier PC o móvil**.
+* **Motor 3D:** [Three.js](https://threejs.org/) con modelos `.glb` oficiales de Axie, sombras dinámicas y shaders optimizados.
+* **Entorno:** [Vite](https://vitejs.dev/) + [TypeScript](https://www.typescriptlang.org/).
+* **Audio Procedural:** Efectos sonoros y sintetizador con Web Audio API.
 
 ---
 
 ## ⚖️ Divulgación de Recursos, IA y Licencias (Regla 4 del Vibeathon)
 
-* **Assets 3D Oficiales:** Modelos `.glb` de Axie Mascots (`Pomodoro`, `Kotaro`, `Bing`, `Tripp`, `Paladill`, `Xia`, `Kibo`) y enemigos `Sapidae` del catálogo oficial del Vibeathon (`jaatster/axie-3d-assets`), bajo la licencia de Sky Mavis Pte. Ltd.
-* **Uso de Asistentes de IA:** Desarrollado con asistencia de programación en IA (Antigravity / Claude Code) para la arquitectura de simulación de combate, tipado TypeScript y shaders.
-* **Sin Dependencias Propietarias:** Sin runtime de Spine 2D ni APIs no autorizadas; código modular y 100% web nativo.
+* **Assets 3D Oficiales:** Modelos `.glb` animados de Axies (`Pomodoro`, `Kotaro`, `Bing`, `Tripp`) y enemigos `Sapidae` del catálogo oficial del Vibeathon (`jaatster/axie-3d-assets`), bajo la licencia de Sky Mavis Pte. Ltd.
+* **Uso de Asistentes de IA:** Desarrollado con asistencia de programación en IA (Antigravity / Claude Code) para la arquitectura de waypoints, targeting de torres y shaders.
+* **Sin Dependencias Propietarias:** Sin runtime de Spine 2D; 100% código abierto y compatible con la web moderna.
 
 ---
 
-## 🚀 Cómo Ejecutar el Proyecto en Local
+## 🚀 Cómo Ejecutar en Local
 
-1. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-2. Iniciar servidor de desarrollo:
-   ```bash
-   npm run dev
-   ```
-3. Abrir en el navegador:
-   ```
-   http://127.0.0.1:3000
-   ```
-
-Para compilar la versión de producción:
 ```bash
-npm run build
+npm install
+npm run dev
 ```
-La carpeta `/dist` está lista para ser desplegada en Vercel, Netlify o GitHub Pages con 1 clic.
+Abre en tu navegador: `http://127.0.0.1:3000`
