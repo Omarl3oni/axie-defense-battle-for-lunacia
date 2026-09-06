@@ -5,7 +5,6 @@ import {
   TowerInstance,
   TDEnemy,
   TDProjectile,
-  TowerSpot,
   EnemyType
 } from './tower-defense-types';
 import {
@@ -143,6 +142,7 @@ class TowerDefenseGame {
     });
 
     // Bottom Tower Cards Click (Select Tower Type to place)
+    // Bottom Tower Cards Click (Select Tower Type to place)
     const towerCards = document.querySelectorAll('.tower-card');
     towerCards.forEach(card => {
       card.addEventListener('click', (e) => {
@@ -153,6 +153,7 @@ class TowerDefenseGame {
           // Deselect
           this.selectedBuildType = null;
           card.classList.remove('selected');
+          this.arena.hidePlacementPreview();
         } else {
           towerCards.forEach(c => c.classList.remove('selected'));
           this.selectedBuildType = type;
@@ -169,8 +170,52 @@ class TowerDefenseGame {
     this.upgradeTowerBtn.addEventListener('click', () => this.upgradeSelectedTower());
     this.sellTowerBtn.addEventListener('click', () => this.sellSelectedTower());
 
+    // Pointer Move for Placement Hologram
+    window.addEventListener('pointermove', (e) => this.onPointerMove(e));
+
     // Canvas 3D Click Handling
     window.addEventListener('click', (e) => this.onCanvasClick(e));
+  }
+
+  private onPointerMove(e: PointerEvent) {
+    this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+    if (this.selectedBuildType) {
+      this.raycaster.setFromCamera(this.mouse, this.arena.camera);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const hitPoint = new THREE.Vector3();
+      if (this.raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+        const config = TOWER_CONFIGS[this.selectedBuildType];
+        const isValid = this.isValidPlacement(hitPoint, config.cost);
+        this.arena.updatePlacementPreview(hitPoint, isValid, config.range);
+      }
+    } else {
+      this.arena.hidePlacementPreview();
+    }
+  }
+
+  private isValidPlacement(pos: THREE.Vector3, cost: number): boolean {
+    if (this.slp < cost) return false;
+
+    // Map boundaries
+    if (Math.abs(pos.x) > 27 || Math.abs(pos.z) > 19) return false;
+
+    // Keep clear of the Catmull-Rom path
+    if (this.arena.pathSystem.isNearPath(pos, 2.2)) return false;
+
+    // Clearance from Spawning Portal and Ancient Tree
+    if (pos.distanceTo(new THREE.Vector3(-19, 0, -8)) < 3.8) return false;
+    if (pos.distanceTo(new THREE.Vector3(18, 0, 0)) < 4.2) return false;
+
+    // Minimum distance from any existing tower
+    for (const t of this.towers) {
+      if (pos.distanceTo(t.position) < 2.5) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private resetGame() {
@@ -182,6 +227,8 @@ class TowerDefenseGame {
     this.spellCooldown = 0;
     this.isSpellAiming = false;
     this.selectedBuildType = null;
+    this.arena.hidePlacementPreview();
+    document.querySelectorAll('.tower-card').forEach(c => c.classList.remove('selected'));
     this.closeInspector();
 
     // Clear Entities
@@ -193,12 +240,6 @@ class TowerDefenseGame {
     this.enemies = [];
     this.projectiles = [];
     this.waveQueue = [];
-
-    // Reset Spots
-    this.arena.towerSpots.forEach(s => {
-      s.occupiedBy = null;
-      (s.ringMesh.material as THREE.MeshBasicMaterial).color.setHex(0x38bdf8);
-    });
 
     this.updateHUD();
     sounds.startMusic();
@@ -233,16 +274,13 @@ class TowerDefenseGame {
 
     this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
     this.raycaster.setFromCamera(this.mouse, this.arena.camera);
 
-    // 1. If Spell is aiming, cast spell on ground intersection!
+    // 1. If Spell is aiming, cast spell on ground intersection
     if (this.isSpellAiming) {
       const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
       const hitPoint = new THREE.Vector3();
-      this.raycaster.ray.intersectPlane(groundPlane, hitPoint);
-
-      if (hitPoint) {
+      if (this.raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
         this.castMeteorSpell(hitPoint);
         this.isSpellAiming = false;
         this.spellBtn.style.borderColor = 'var(--accent-gold)';
@@ -250,71 +288,83 @@ class TowerDefenseGame {
       return;
     }
 
-    // 2. Check intersection with Tower Platforms
-    const spotMeshes = this.arena.towerSpots.map(s => s.mesh);
-    const intersects = this.raycaster.intersectObjects(spotMeshes);
-
-    if (intersects.length > 0) {
-      const hitSpotMesh = intersects[0].object as THREE.Mesh;
-      const spotId = (hitSpotMesh as any).userData?.spotId;
-      const spot = this.arena.towerSpots[spotId];
-
-      if (spot) {
-        this.handleSpotClick(spot);
-        return;
-      }
-    }
-
-    // 3. Clicked empty ground: close inspector and deselect
-    this.closeInspector();
-  }
-
-  private handleSpotClick(spot: TowerSpot) {
-    if (spot.occupiedBy) {
-      // Open Inspector for this tower
-      this.openInspector(spot.occupiedBy);
-      return;
-    }
-
-    // Spot is empty: check if we have a tower type selected to build
+    // 2. If building a tower freely
     if (this.selectedBuildType) {
-      const config = TOWER_CONFIGS[this.selectedBuildType];
-      if (this.slp < config.cost) {
-        sounds.playGameOver();
-        alert(`¡No tienes suficiente SLP! Necesitas ${config.cost} SLP.`);
-        return;
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const hitPoint = new THREE.Vector3();
+      if (this.raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+        const config = TOWER_CONFIGS[this.selectedBuildType];
+        if (this.isValidPlacement(hitPoint, config.cost)) {
+          // Deduct cost and build
+          this.slp -= config.cost;
+          sounds.playShoot();
+
+          const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, 1);
+          mesh.position.set(hitPoint.x, 0, hitPoint.z);
+          this.arena.scene.add(mesh);
+
+          const tower: TowerInstance = {
+            id: `tower_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            type: config.type,
+            level: 1,
+            position: new THREE.Vector3(hitPoint.x, 0, hitPoint.z),
+            range: config.range,
+            damage: config.damage,
+            attackSpeed: config.attackSpeed,
+            attackTimer: 0,
+            targetEnemyId: null,
+            mesh,
+            mixer
+          };
+
+          this.towers.push(tower);
+
+          // Clear selection
+          this.selectedBuildType = null;
+          document.querySelectorAll('.tower-card').forEach(c => c.classList.remove('selected'));
+          this.arena.hidePlacementPreview();
+
+          this.updateHUD();
+          this.openInspector(tower);
+          return;
+        } else {
+          if (this.slp < config.cost) {
+            sounds.playGameOver();
+            alert(`¡No tienes suficiente SLP! Necesitas ${config.cost} SLP.`);
+          } else {
+            sounds.playHit();
+          }
+          return;
+        }
       }
-
-      // Deduct cost and build
-      this.slp -= config.cost;
-      sounds.playShoot();
-
-      const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, 1);
-      mesh.position.copy(spot.position);
-      this.arena.scene.add(mesh);
-
-      const tower: TowerInstance = {
-        id: `tower_${spot.id}_${Date.now()}`,
-        type: config.type,
-        level: 1,
-        spotId: spot.id,
-        position: spot.position.clone(),
-        range: config.range,
-        damage: config.damage,
-        attackSpeed: config.attackSpeed,
-        attackTimer: 0,
-        targetEnemyId: null,
-        mesh,
-        mixer
-      };
-
-      spot.occupiedBy = tower;
-      (spot.ringMesh.material as THREE.MeshBasicMaterial).color.setHex(0x10b981);
-      this.towers.push(tower);
-
-      this.updateHUD();
-      this.openInspector(tower);
     }
+
+    // 3. Check if clicked an existing tower to inspect
+    if (this.towers.length > 0) {
+      const towerMeshes = this.towers.map(t => t.mesh);
+      const intersects = this.raycaster.intersectObjects(towerMeshes, true);
+
+      if (intersects.length > 0) {
+        let clickedObj: THREE.Object3D | null = intersects[0].object;
+        let clickedTower: TowerInstance | null = null;
+        while (clickedObj && clickedObj !== this.arena.scene) {
+          const found = this.towers.find(t => t.mesh === clickedObj);
+          if (found) {
+            clickedTower = found;
+            break;
+          }
+          clickedObj = clickedObj.parent;
+        }
+
+        if (clickedTower) {
+          this.openInspector(clickedTower);
+          return;
+        }
+      }
+    }
+
+    // 4. Clicked empty ground: close inspector and deselect
+    this.closeInspector();
   }
 
   private openInspector(tower: TowerInstance) {
@@ -387,7 +437,6 @@ class TowerDefenseGame {
     if (!this.inspectedTower) return;
     const tower = this.inspectedTower;
     const config = TOWER_CONFIGS[tower.type];
-    const spot = this.arena.towerSpots[tower.spotId];
 
     const invested = config.cost + (tower.level - 1) * config.upgradeCost;
     const refund = Math.round(invested * 0.7);
@@ -396,9 +445,6 @@ class TowerDefenseGame {
     sounds.playGem();
 
     this.arena.scene.remove(tower.mesh);
-    spot.occupiedBy = null;
-    (spot.ringMesh.material as THREE.MeshBasicMaterial).color.setHex(0x38bdf8);
-
     this.towers = this.towers.filter(t => t.id !== tower.id);
 
     this.closeInspector();

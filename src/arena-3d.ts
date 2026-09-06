@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PathSystem } from './path-system';
-import { TOWER_SPOTS_POSITIONS } from './tower-defense-data';
 import { TowerSpot } from './tower-defense-types';
 
 export class Arena3D {
@@ -13,6 +12,13 @@ export class Arena3D {
 
   public towerSpots: TowerSpot[] = [];
   public rangeCircleMesh: THREE.Mesh;
+  public groundMesh!: THREE.Mesh;
+
+  // Placement Preview
+  public placementPreviewGroup!: THREE.Group;
+  private previewFootprintMesh!: THREE.Mesh;
+  private previewRangeMesh!: THREE.Mesh;
+  private currentPreviewRange: number = 0;
 
   private loader: GLTFLoader = new GLTFLoader();
   private modelCache: Map<string, { scene: THREE.Group; animations: THREE.AnimationClip[] }> = new Map();
@@ -47,10 +53,10 @@ export class Arena3D {
     this.pathSystem = new PathSystem();
     this.scene.add(this.pathSystem.createVisualPath());
 
-    // 5. Build Environment, Portal, Tree, and Platforms
+    // 5. Build Environment, Portal, Tree, and Placement Preview
     this.setupLighting();
     this.setupEnvironment();
-    this.setupTowerSpots();
+    this.setupPlacementPreview();
 
     // 6. Range Circle Indicator (Hidden by default)
     const rangeGeom = new THREE.RingGeometry(0.1, 1, 32);
@@ -98,9 +104,9 @@ export class Arena3D {
       color: 0x15261d, // Deep Lunacia forest grass
       roughness: 0.85
     });
-    const ground = new THREE.Mesh(groundGeom, groundMat);
-    ground.receiveShadow = true;
-    this.scene.add(ground);
+    this.groundMesh = new THREE.Mesh(groundGeom, groundMat);
+    this.groundMesh.receiveShadow = true;
+    this.scene.add(this.groundMesh);
 
     // Chimera Spawning Portal (at start of path)
     const portalGroup = new THREE.Group();
@@ -161,44 +167,59 @@ export class Arena3D {
     this.scene.add(treeGroup);
   }
 
-  private setupTowerSpots() {
-    TOWER_SPOTS_POSITIONS.forEach((pos, idx) => {
-      // Pedestal
-      const padGeom = new THREE.CylinderGeometry(1.4, 1.6, 0.4, 20);
-      const padMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
-        roughness: 0.6,
-        metalness: 0.2
-      });
-      const pad = new THREE.Mesh(padGeom, padMat);
-      pad.position.set(pos.x, 0.2, pos.z);
-      pad.castShadow = true;
-      pad.receiveShadow = true;
-      (pad as any).userData = { spotId: idx };
+  private setupPlacementPreview() {
+    this.placementPreviewGroup = new THREE.Group();
 
-      // Glowing Runic Ring
-      const ringGeom = new THREE.RingGeometry(1.45, 1.6, 24);
-      ringGeom.rotateX(-Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0x38bdf8,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.5
-      });
-      const ring = new THREE.Mesh(ringGeom, ringMat);
-      ring.position.set(pos.x, 0.41, pos.z);
-
-      this.scene.add(pad);
-      this.scene.add(ring);
-
-      this.towerSpots.push({
-        id: idx,
-        position: pos.clone().setY(0.4),
-        mesh: pad,
-        ringMesh: ring,
-        occupiedBy: null
-      });
+    // Footprint disc
+    const footprintGeom = new THREE.RingGeometry(0.1, 1.4, 32);
+    footprintGeom.rotateX(-Math.PI / 2);
+    const footprintMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.55
     });
+    this.previewFootprintMesh = new THREE.Mesh(footprintGeom, footprintMat);
+    this.previewFootprintMesh.position.y = 0.06;
+    this.placementPreviewGroup.add(this.previewFootprintMesh);
+
+    // Attack range circle
+    const rangeGeom = new THREE.RingGeometry(0.8, 1.0, 48);
+    rangeGeom.rotateX(-Math.PI / 2);
+    const rangeMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.28
+    });
+    this.previewRangeMesh = new THREE.Mesh(rangeGeom, rangeMat);
+    this.previewRangeMesh.position.y = 0.07;
+    this.placementPreviewGroup.add(this.previewRangeMesh);
+
+    this.placementPreviewGroup.visible = false;
+    this.scene.add(this.placementPreviewGroup);
+  }
+
+  public updatePlacementPreview(pos: THREE.Vector3, isValid: boolean, range: number) {
+    this.placementPreviewGroup.position.set(pos.x, 0, pos.z);
+    const colorHex = isValid ? 0x10b981 : 0xef4444;
+
+    (this.previewFootprintMesh.material as THREE.MeshBasicMaterial).color.setHex(colorHex);
+    (this.previewRangeMesh.material as THREE.MeshBasicMaterial).color.setHex(colorHex);
+
+    if (Math.abs(this.currentPreviewRange - range) > 0.01) {
+      this.currentPreviewRange = range;
+      this.previewRangeMesh.geometry.dispose();
+      const geom = new THREE.RingGeometry(range - 0.2, range, 48);
+      geom.rotateX(-Math.PI / 2);
+      this.previewRangeMesh.geometry = geom;
+    }
+
+    this.placementPreviewGroup.visible = true;
+  }
+
+  public hidePlacementPreview() {
+    this.placementPreviewGroup.visible = false;
   }
 
   public async preloadModels(fileList: string[]): Promise<void> {
@@ -224,51 +245,86 @@ export class Arena3D {
   }
 
   public createTowerMesh(modelFile: string, level: number): { mesh: THREE.Group; mixer?: THREE.AnimationMixer } {
+    const rootGroup = new THREE.Group();
+
+    // 1. Stone pedestal base under the Axie
+    const padGeom = new THREE.CylinderGeometry(1.3, 1.5, 0.35, 20);
+    const padMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.7,
+      metalness: 0.15
+    });
+    const pad = new THREE.Mesh(padGeom, padMat);
+    pad.position.y = 0.175;
+    pad.castShadow = true;
+    pad.receiveShadow = true;
+    (pad as any).userData = { isTowerBase: true };
+    rootGroup.add(pad);
+
+    // Glowing runic rim
+    const rimGeom = new THREE.RingGeometry(1.32, 1.48, 24);
+    rimGeom.rotateX(-Math.PI / 2);
+    const rimMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.6
+    });
+    const rim = new THREE.Mesh(rimGeom, rimMat);
+    rim.position.y = 0.36;
+    rootGroup.add(rim);
+
+    // 2. Axie Character Model
     const cached = this.modelCache.get(modelFile);
-    let group: THREE.Group;
+    let axieGroup: THREE.Group;
     let mixer: THREE.AnimationMixer | undefined;
 
     if (cached) {
-      group = SkeletonUtils.clone(cached.scene) as THREE.Group;
+      axieGroup = SkeletonUtils.clone(cached.scene) as THREE.Group;
       if (cached.animations.length > 0) {
-        mixer = new THREE.AnimationMixer(group);
+        mixer = new THREE.AnimationMixer(axieGroup);
         const idleClip = cached.animations.find(a => /idle/i.test(a.name)) ?? cached.animations[0];
         if (idleClip) mixer.clipAction(idleClip).play();
       }
     } else {
       // Fallback
-      group = new THREE.Group();
+      axieGroup = new THREE.Group();
       const s = new THREE.Mesh(
         new THREE.SphereGeometry(0.8, 16, 16),
         new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4 })
       );
       s.position.y = 0.8;
-      group.add(s);
+      axieGroup.add(s);
     }
 
-    // Scale and Level Aura
+    axieGroup.position.y = 0.35;
+    rootGroup.add(axieGroup);
+
+    // 3. Scale and Level Aura
     if (level === 2) {
-      group.scale.multiplyScalar(1.15);
+      axieGroup.scale.multiplyScalar(1.15);
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(1.0, 1.25, 20),
         new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide })
       );
       ring.rotateX(-Math.PI / 2);
-      ring.position.y = 0.05;
-      group.add(ring);
+      ring.position.y = 0.38;
+      rootGroup.add(ring);
     } else if (level === 3) {
-      group.scale.multiplyScalar(1.3);
+      axieGroup.scale.multiplyScalar(1.3);
       // Golden Master Crown
       const goldRing = new THREE.Mesh(
         new THREE.RingGeometry(1.0, 1.35, 24),
         new THREE.MeshBasicMaterial({ color: 0xffb703, side: THREE.DoubleSide })
       );
       goldRing.rotateX(-Math.PI / 2);
-      goldRing.position.y = 0.05;
-      group.add(goldRing);
+      goldRing.position.y = 0.38;
+      rootGroup.add(goldRing);
     }
 
-    return { mesh: group, mixer };
+    (rootGroup as any).userData = { isTower: true };
+
+    return { mesh: rootGroup, mixer };
   }
 
   public createEnemyMesh(modelFile: string, scale: number, colorFilter?: number): { mesh: THREE.Group; mixer?: THREE.AnimationMixer; healthBarFill: THREE.Mesh } {

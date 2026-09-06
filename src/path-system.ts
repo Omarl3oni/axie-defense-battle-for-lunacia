@@ -4,10 +4,12 @@ import { PATH_WAYPOINTS } from './tower-defense-data';
 export class PathSystem {
   public curve: THREE.CatmullRomCurve3;
   public totalLength: number;
+  private curvePoints: THREE.Vector3[] = [];
 
   constructor() {
     this.curve = new THREE.CatmullRomCurve3(PATH_WAYPOINTS, false, 'catmullrom', 0.2);
     this.totalLength = this.curve.getLength();
+    this.curvePoints = this.curve.getPoints(160);
   }
 
   public getPositionAtDistance(distance: number): { position: THREE.Vector3; tangent: THREE.Vector3 } {
@@ -15,6 +17,35 @@ export class PathSystem {
     const position = this.curve.getPointAt(u);
     const tangent = this.curve.getTangentAt(u);
     return { position, tangent };
+  }
+
+  public isNearPath(pos: THREE.Vector3, threshold: number = 2.2): boolean {
+    const thresholdSq = threshold * threshold;
+    const px = pos.x;
+    const pz = pos.z;
+
+    for (let i = 0; i < this.curvePoints.length - 1; i++) {
+      const p1 = this.curvePoints[i];
+      const p2 = this.curvePoints[i + 1];
+
+      const dx = p2.x - p1.x;
+      const dz = p2.z - p1.z;
+      const lenSq = dx * dx + dz * dz;
+
+      let t = 0;
+      if (lenSq > 0.0001) {
+        t = Math.max(0, Math.min(1, ((px - p1.x) * dx + (pz - p1.z) * dz) / lenSq));
+      }
+
+      const closestX = p1.x + t * dx;
+      const closestZ = p1.z + t * dz;
+
+      const distSq = (px - closestX) * (px - closestX) + (pz - closestZ) * (pz - closestZ);
+      if (distSq < thresholdSq) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public createVisualPath(): THREE.Group {

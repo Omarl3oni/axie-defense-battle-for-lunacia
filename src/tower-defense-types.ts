@@ -22,7 +22,7 @@ export interface TowerInstance {
   id: string;
   type: TowerType;
   level: number; // 1, 2, or 3
-  spotId: number;
+  spotId?: number;
   position: THREE.Vector3;
   range: number;
   damage: number;
