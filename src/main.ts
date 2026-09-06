@@ -20,16 +20,16 @@ class TowerDefenseGame {
 
   // Core Game State
   private lives: number = 20;
-  private slp: number = 300; // Starting SLP for initial towers
+  private slp: number = 250; // Starting SLP for initial towers
   private currentWaveIndex: number = 0;
   private isWaveRunning: boolean = false;
   private gameSpeed: number = 1.0;
 
   // Intermission (Auto-Wave Countdown) State
   private isIntermission: boolean = true;
-  private intermissionTimer: number = 12.0;
-  private readonly initialIntermission: number = 12.0;
-  private readonly betweenWaveIntermission: number = 7.0;
+  private intermissionTimer: number = 5.0;
+  private readonly initialIntermission: number = 5.0;
+  private readonly betweenWaveIntermission: number = 3.0;
   private lastWarningSecond: number = -1;
 
   // Active Spell State
@@ -111,11 +111,9 @@ class TowerDefenseGame {
       'kotaro.glb',
       'bing.glb',
       'tripp.glb',
-      'sapidae-f-a.glb',
-      'sapidae-m-a.glb',
-      'sapidae-m-e.glb',
-      'sapidae-f-c.glb',
-      'sapidae-f-b.glb'
+      'xia.glb',
+      'kibo.glb',
+      'paladill.glb'
     ];
     await this.arena.preloadModels(models);
   }
@@ -239,7 +237,7 @@ class TowerDefenseGame {
 
   private resetGame() {
     this.lives = 20;
-    this.slp = 300;
+    this.slp = 250;
     this.currentWaveIndex = 0;
     this.isWaveRunning = false;
     this.gameSpeed = 1.0;
@@ -629,8 +627,8 @@ class TowerDefenseGame {
       id: this.nextEnemyId++,
       type,
       name: config.name,
-      hp: config.baseHp * (1 + this.currentWaveIndex * 0.15),
-      maxHp: config.baseHp * (1 + this.currentWaveIndex * 0.15),
+      hp: config.baseHp * (1 + this.currentWaveIndex * 0.24),
+      maxHp: config.baseHp * (1 + this.currentWaveIndex * 0.24),
       speed: config.speed,
       baseSpeed: config.speed,
       rewardSlp: config.rewardSlp,

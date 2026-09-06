@@ -71,61 +71,63 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
 export const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
   scout: {
     type: 'scout',
-    name: 'Quimera Exploradora',
-    traitLabel: '⚡ Sprint Veloz',
-    modelFile: 'sapidae-m-a.glb',
-    baseHp: 75,
-    speed: 4.2,
+    name: 'Quimera Berserker',
+    traitLabel: '⚡ Sprint Feroz',
+    modelFile: 'xia.glb',
+    baseHp: 95,
+    speed: 4.4,
     rewardSlp: 12,
-    scale: 1.0,
+    scale: 1.05,
+    colorFilter: 0xdc2626,
     hasSprint: true
   },
   warrior: {
     type: 'warrior',
-    name: 'Quimera Guerrera',
+    name: 'Quimera Bestia Feral',
     traitLabel: '🛡️ Regeneración',
-    modelFile: 'sapidae-f-a.glb',
-    baseHp: 160,
-    speed: 2.6,
-    rewardSlp: 20,
+    modelFile: 'kibo.glb',
+    baseHp: 220,
+    speed: 2.7,
+    rewardSlp: 22,
     scale: 1.25,
-    regenRate: 10
+    colorFilter: 0x15803d,
+    regenRate: 14
   },
   armored: {
     type: 'armored',
-    name: 'Quimera Blindada',
+    name: 'Quimera Acorazada',
     traitLabel: '🧱 Anti-Slow & Blindaje',
-    modelFile: 'sapidae-m-e.glb',
-    baseHp: 380,
-    speed: 1.5,
-    rewardSlp: 40,
-    scale: 1.5,
-    colorFilter: 0x9333ea,
+    modelFile: 'paladill.glb',
+    baseHp: 500,
+    speed: 1.6,
+    rewardSlp: 45,
+    scale: 1.45,
+    colorFilter: 0x6b21a8,
     isImmuneSlow: true,
-    armorReduction: 0.3
+    armorReduction: 0.35
   },
   toxic: {
     type: 'toxic',
     name: 'Quimera Tóxica',
     traitLabel: '🧪 Anti-Veneno & Aura',
-    modelFile: 'sapidae-f-c.glb',
-    baseHp: 240,
-    speed: 2.3,
-    rewardSlp: 30,
-    scale: 1.25,
-    colorFilter: 0x10b981,
+    modelFile: 'bing.glb',
+    baseHp: 320,
+    speed: 2.4,
+    rewardSlp: 35,
+    scale: 1.2,
+    colorFilter: 0x059669,
     isImmunePoison: true
   },
   boss: {
     type: 'boss',
     name: 'Reina Quimera Ancestral',
     traitLabel: '👑 Colosal Imparable',
-    modelFile: 'sapidae-f-b.glb',
-    baseHp: 2800,
-    speed: 1.3,
-    rewardSlp: 250,
-    scale: 2.7,
-    colorFilter: 0xff1144
+    modelFile: 'kibo.glb',
+    baseHp: 3600,
+    speed: 1.35,
+    rewardSlp: 300,
+    scale: 2.5,
+    colorFilter: 0x991b1b
   }
 };
 
@@ -138,15 +140,15 @@ export const PATH_WAYPOINTS: THREE.Vector3[] = [
   new THREE.Vector3(-1, 0, 7),
   new THREE.Vector3(1, 0, -4),     // Second big curve up
   new THREE.Vector3(8, 0, -4),
-  new THREE.Vector3(8, 0, 6),      // Third curve
-  new THREE.Vector3(15, 0, 6),
-  new THREE.Vector3(18, 0, 0)      // Ancient Tree of Lunacia End
+  new THREE.Vector3(8, 0, 9),      // Third curve down
+  new THREE.Vector3(15, 0, 9),
+  new THREE.Vector3(19, 0, 2)      // Ancient Tree Goal
 ];
 
-// 8 Strategic Tower Platforms overlooking the path curves
-export const TOWER_SPOTS_POSITIONS: THREE.Vector3[] = [
-  new THREE.Vector3(-14, 0, -4.5),  // Spot 0: Early start
-  new THREE.Vector3(-4.5, 0, 4.0),   // Spot 1: Inside first bend
+// Pre-defined strategic placement spots
+export const FIXED_TOWER_SPOTS: THREE.Vector3[] = [
+  new THREE.Vector3(-15, 0, -5),     // Spot 0: Early killzone
+  new THREE.Vector3(-11.5, 0, -11.5), // Spot 1: North inlet
   new THREE.Vector3(-11.5, 0, 3.5),  // Spot 2: Outside first bend
   new THREE.Vector3(-4.5, 0, -2.5),  // Spot 3: Center intersection
   new THREE.Vector3(4.5, 0, 2.5),    // Spot 4: Mid intersection
@@ -157,90 +159,90 @@ export const TOWER_SPOTS_POSITIONS: THREE.Vector3[] = [
 
 // 10 Balanced Progressive Waves
 export const TD_WAVES: WaveConfig[] = [
-  // Ola 1: Introducción
+  // Ola 1: Introducción Rápida
   {
     waveNumber: 1,
     groups: [
-      { enemyType: 'scout', count: 6, interval: 1.6, delay: 0 }
+      { enemyType: 'scout', count: 8, interval: 1.2, delay: 0 }
     ]
   },
-  // Ola 2: Mezcla de veloces y guerreros
+  // Ola 2: Mezcla de veloces y bestias feroces
   {
     waveNumber: 2,
     groups: [
-      { enemyType: 'scout', count: 8, interval: 1.4, delay: 0 },
-      { enemyType: 'warrior', count: 3, interval: 2.0, delay: 4 }
+      { enemyType: 'scout', count: 10, interval: 1.1, delay: 0 },
+      { enemyType: 'warrior', count: 4, interval: 1.8, delay: 4 }
     ]
   },
-  // Ola 3: Escuadrón de Guerreros
+  // Ola 3: Escuadrón de Bestias Ferales
   {
     waveNumber: 3,
     groups: [
-      { enemyType: 'warrior', count: 8, interval: 1.6, delay: 0 },
-      { enemyType: 'scout', count: 6, interval: 1.0, delay: 6 }
+      { enemyType: 'warrior', count: 10, interval: 1.3, delay: 0 },
+      { enemyType: 'scout', count: 8, interval: 0.9, delay: 5 }
     ]
   },
-  // Ola 4: Primera Quimera Blindada
+  // Ola 4: Vanguardia Acorazada
   {
     waveNumber: 4,
     groups: [
-      { enemyType: 'armored', count: 2, interval: 3.5, delay: 0 },
-      { enemyType: 'scout', count: 10, interval: 1.2, delay: 2 }
+      { enemyType: 'armored', count: 4, interval: 2.8, delay: 0 },
+      { enemyType: 'scout', count: 12, interval: 1.0, delay: 2 }
     ]
   },
-  // Ola 5: Introducción de Quimeras Tóxicas
+  // Ola 5: Horda Mixta con Quimeras Tóxicas
   {
     waveNumber: 5,
     groups: [
-      { enemyType: 'warrior', count: 8, interval: 1.3, delay: 0 },
-      { enemyType: 'toxic', count: 4, interval: 2.0, delay: 3 },
-      { enemyType: 'armored', count: 2, interval: 2.5, delay: 7 }
+      { enemyType: 'warrior', count: 10, interval: 1.2, delay: 0 },
+      { enemyType: 'toxic', count: 5, interval: 1.8, delay: 3 },
+      { enemyType: 'armored', count: 3, interval: 2.4, delay: 7 }
     ]
   },
-  // Ola 6: Desfile de Blindados
+  // Ola 6: Asedio de Caparazones Acorazados
   {
     waveNumber: 6,
     groups: [
-      { enemyType: 'armored', count: 5, interval: 2.2, delay: 0 },
-      { enemyType: 'scout', count: 12, interval: 0.9, delay: 4 }
+      { enemyType: 'armored', count: 7, interval: 2.0, delay: 0 },
+      { enemyType: 'scout', count: 15, interval: 0.8, delay: 3 }
     ]
   },
-  // Ola 7: Ataque Relámpago con Toxinas
+  // Ola 7: Ataque Relámpago en Enjambre
   {
     waveNumber: 7,
     groups: [
-      { enemyType: 'scout', count: 16, interval: 0.7, delay: 0 },
-      { enemyType: 'toxic', count: 5, interval: 1.8, delay: 3 },
-      { enemyType: 'warrior', count: 8, interval: 1.2, delay: 6 }
+      { enemyType: 'scout', count: 20, interval: 0.6, delay: 0 },
+      { enemyType: 'toxic', count: 7, interval: 1.6, delay: 2 },
+      { enemyType: 'warrior', count: 10, interval: 1.0, delay: 5 }
     ]
   },
-  // Ola 8: Alta Resistencia Quimérica
+  // Ola 8: Fortaleza Móvil Tóxica
   {
     waveNumber: 8,
     groups: [
-      { enemyType: 'armored', count: 6, interval: 2.0, delay: 0 },
-      { enemyType: 'toxic', count: 6, interval: 1.6, delay: 2 },
-      { enemyType: 'warrior', count: 12, interval: 1.1, delay: 5 }
+      { enemyType: 'armored', count: 8, interval: 1.8, delay: 0 },
+      { enemyType: 'toxic', count: 8, interval: 1.4, delay: 2 },
+      { enemyType: 'warrior', count: 14, interval: 1.0, delay: 4 }
     ]
   },
   // Ola 9: Gran Asedio Pre-Jefe
   {
     waveNumber: 9,
     groups: [
-      { enemyType: 'armored', count: 8, interval: 1.8, delay: 0 },
-      { enemyType: 'scout', count: 14, interval: 0.8, delay: 2 },
-      { enemyType: 'toxic', count: 8, interval: 1.4, delay: 4 },
-      { enemyType: 'warrior', count: 10, interval: 1.0, delay: 7 }
+      { enemyType: 'armored', count: 10, interval: 1.6, delay: 0 },
+      { enemyType: 'scout', count: 18, interval: 0.7, delay: 2 },
+      { enemyType: 'toxic', count: 10, interval: 1.3, delay: 4 },
+      { enemyType: 'warrior', count: 12, interval: 0.9, delay: 6 }
     ]
   },
   // Ola 10: JEFE FINAL - Reina Quimera Ancestral
   {
     waveNumber: 10,
     groups: [
-      { enemyType: 'armored', count: 4, interval: 2.0, delay: 0 },
-      { enemyType: 'toxic', count: 4, interval: 1.8, delay: 2 },
-      { enemyType: 'boss', count: 1, interval: 1.0, delay: 5 },
-      { enemyType: 'scout', count: 16, interval: 0.8, delay: 8 }
+      { enemyType: 'armored', count: 6, interval: 1.8, delay: 0 },
+      { enemyType: 'toxic', count: 6, interval: 1.6, delay: 2 },
+      { enemyType: 'boss', count: 1, interval: 1.0, delay: 4 },
+      { enemyType: 'scout', count: 20, interval: 0.7, delay: 7 }
     ]
   }
 ];

@@ -378,6 +378,7 @@ export class Arena3D {
             if (m) {
               const cl = (Array.isArray(m) ? m[0] : m).clone() as THREE.MeshStandardMaterial;
               if (cl.color) cl.color.setHex(colorFilter);
+              cl.emissive = new THREE.Color(colorFilter).multiplyScalar(0.2);
               (c as THREE.Mesh).material = cl;
             }
           }
