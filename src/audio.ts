@@ -160,32 +160,89 @@ class SoundManager {
     });
   }
 
+  public playError() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.linearRampToValueAtTime(80, now + 0.18);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
+  public isMusicRunning(): boolean {
+    return this.musicInterval !== null;
+  }
+
+  public toggleMusic(): boolean {
+    if (this.musicInterval !== null) {
+      this.stopMusic();
+      return false;
+    } else {
+      this.startMusic();
+      return true;
+    }
+  }
+
   public startMusic() {
     this.initContext();
     if (this.musicInterval !== null) return;
 
-    // Simple bassline loop
-    const bassline = [110, 110, 130, 146, 110, 98, 110, 164];
+    // Harmonic melody & bassline loop (Axie Fantasy Adventure)
+    const bassline = [110, 110, 130.81, 146.83, 110, 98, 130.81, 164.81];
+    const melody = [440, 523.25, 659.25, 523.25, 392, 523.25, 587.33, 659.25];
+
     this.musicInterval = window.setInterval(() => {
       if (this.isMuted || !this.ctx) return;
       const now = this.ctx.currentTime;
-      const freq = bassline[this.beatStep % bassline.length];
+      const step = this.beatStep % bassline.length;
       this.beatStep++;
 
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
+      // Bass note
+      const bassFreq = bassline[step];
+      const bassOsc = this.ctx.createOscillator();
+      const bassGain = this.ctx.createGain();
+      bassOsc.type = 'triangle';
+      bassOsc.frequency.setValueAtTime(bassFreq, now);
 
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      bassGain.gain.setValueAtTime(0.06, now);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
 
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      bassOsc.connect(bassGain);
+      bassGain.connect(this.ctx.destination);
 
-      osc.start(now);
-      osc.stop(now + 0.22);
-    }, 280);
+      bassOsc.start(now);
+      bassOsc.stop(now + 0.26);
+
+      // Soft arpeggio melody note
+      const melFreq = melody[step];
+      const melOsc = this.ctx.createOscillator();
+      const melGain = this.ctx.createGain();
+      melOsc.type = 'sine';
+      melOsc.frequency.setValueAtTime(melFreq, now);
+
+      melGain.gain.setValueAtTime(0.035, now);
+      melGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      melOsc.connect(melGain);
+      melGain.connect(this.ctx.destination);
+
+      melOsc.start(now);
+      melOsc.stop(now + 0.22);
+    }, 260);
   }
 
   public stopMusic() {

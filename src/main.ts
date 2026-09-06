@@ -24,6 +24,7 @@ class TowerDefenseGame {
   private lastTime: number = performance.now();
 
   // Core Game State
+  private isGameStarted: boolean = false;
   private lives: number = 20;
   private slp: number = 250; // Starting SLP for initial towers
   private currentWaveIndex: number = 0;
@@ -31,7 +32,7 @@ class TowerDefenseGame {
   private gameSpeed: number = 1.0;
 
   // Intermission (Auto-Wave Countdown) State
-  private isIntermission: boolean = true;
+  private isIntermission: boolean = false;
   private intermissionTimer: number = 5.0;
   private readonly initialIntermission: number = 5.0;
   private readonly betweenWaveIntermission: number = 3.0;
@@ -79,13 +80,17 @@ class TowerDefenseGame {
   private waveDisplay = document.querySelector('#wave-display') as HTMLElement;
   private livesDisplay = document.querySelector('#lives-display') as HTMLElement;
   private slpDisplay = document.querySelector('#slp-display') as HTMLElement;
+  private slpPill = document.querySelector('.slp-pill') as HTMLElement;
   private speedBtn = document.querySelector('#speed-btn') as HTMLElement;
+  private musicBtn = document.querySelector('#music-btn') as HTMLElement;
   private startWaveBtn = document.querySelector('#start-wave-btn') as HTMLButtonElement;
   private spellBtn = document.querySelector('#spell-btn') as HTMLElement;
   private spellCooldownOverlay = document.querySelector('#spell-cooldown-overlay') as HTMLElement;
   private synergyPill = document.querySelector('#synergy-pill') as HTMLElement;
   private synergyLabel = document.querySelector('#synergy-label') as HTMLElement;
   private activeRunesContainer = document.querySelector('#active-runes-container') as HTMLElement;
+  private toastEl = document.querySelector('#td-toast') as HTMLElement;
+  private toastTimeout: number | null = null;
 
   private inspectorModal = document.querySelector('#inspector-modal') as HTMLElement;
   private inspectAvatar = document.querySelector('#inspect-avatar') as HTMLElement;
@@ -144,6 +149,7 @@ class TowerDefenseGame {
     // Start Welcome Button
     const startPlayBtn = document.querySelector('#start-play-btn') as HTMLElement;
     startPlayBtn.addEventListener('click', () => {
+      this.isGameStarted = true;
       this.startScreen.classList.add('hidden');
       this.resetGame();
     });
@@ -162,6 +168,15 @@ class TowerDefenseGame {
       sounds.playGem();
     });
 
+    // Music Toggle Button
+    if (this.musicBtn) {
+      this.musicBtn.addEventListener('click', () => {
+        const isPlaying = sounds.toggleMusic();
+        this.musicBtn.textContent = isPlaying ? '🎵' : '🔇';
+        this.musicBtn.classList.toggle('muted', !isPlaying);
+      });
+    }
+
     // Start Wave Button (Early Call)
     this.startWaveBtn.addEventListener('click', () => {
       if (this.isWaveRunning) return;
@@ -174,6 +189,10 @@ class TowerDefenseGame {
       this.isSpellAiming = !this.isSpellAiming;
       this.spellBtn.style.borderColor = this.isSpellAiming ? 'var(--accent-aqua)' : 'var(--accent-gold)';
       sounds.playShoot();
+      if (this.isSpellAiming) {
+        this.deselectBuildType();
+        this.showToast('☄️ Haz clic en el sendero para lanzar la Lluvia de Espinas. [ESC] para cancelar.');
+      }
     });
 
     // Bottom Tower Cards Click (Select Tower Type to place)
@@ -184,20 +203,23 @@ class TowerDefenseGame {
         const type = card.getAttribute('data-tower') as TowerType;
 
         if (this.cardCooldowns[type] > 0) {
-          sounds.playHit();
+          sounds.playError();
+          this.showToast(`⏳ ${TOWER_CONFIGS[type].name} aún está en enfriamiento (${Math.ceil(this.cardCooldowns[type])}s).`, 'error');
           return;
         }
 
         if (this.selectedBuildType === type) {
           // Deselect
-          this.selectedBuildType = null;
-          card.classList.remove('selected');
-          this.arena.hidePlacementPreview();
+          this.deselectBuildType();
+          sounds.playHit();
         } else {
           towerCards.forEach(c => c.classList.remove('selected'));
           this.selectedBuildType = type;
           card.classList.add('selected');
           sounds.playHit();
+          if (this.slp < TOWER_CONFIGS[type].cost) {
+            this.triggerSlpError(TOWER_CONFIGS[type].cost, TOWER_CONFIGS[type].name);
+          }
         }
 
         this.closeInspector();
@@ -222,11 +244,67 @@ class TowerDefenseGame {
       });
     });
 
+    // Keyboard ESC shortcut to cancel tower placement or close inspector
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.selectedBuildType || this.isSpellAiming) {
+          this.deselectBuildType();
+          this.isSpellAiming = false;
+          this.spellBtn.style.borderColor = 'var(--accent-gold)';
+          sounds.playHit();
+        } else if (this.inspectedTower) {
+          this.closeInspector();
+        }
+      }
+    });
+
+    // Right-click (Context Menu) shortcut to cancel tower placement or close inspector
+    window.addEventListener('contextmenu', (e) => {
+      if (this.selectedBuildType || this.isSpellAiming) {
+        e.preventDefault();
+        this.deselectBuildType();
+        this.isSpellAiming = false;
+        this.spellBtn.style.borderColor = 'var(--accent-gold)';
+        sounds.playHit();
+      } else if (this.inspectedTower) {
+        e.preventDefault();
+        this.closeInspector();
+      }
+    });
+
     // Pointer Move for Placement Hologram
     window.addEventListener('pointermove', (e) => this.onPointerMove(e));
 
     // Canvas 3D Click Handling
     window.addEventListener('click', (e) => this.onCanvasClick(e));
+  }
+
+  private deselectBuildType() {
+    this.selectedBuildType = null;
+    document.querySelectorAll('.tower-card').forEach(c => c.classList.remove('selected'));
+    this.arena.hidePlacementPreview();
+  }
+
+  private showToast(message: string, type: 'error' | 'info' = 'info') {
+    if (!this.toastEl) return;
+    this.toastEl.textContent = message;
+    this.toastEl.className = `td-toast visible ${type}`;
+    if (this.toastTimeout !== null) clearTimeout(this.toastTimeout);
+    this.toastTimeout = window.setTimeout(() => {
+      this.toastEl.className = 'td-toast hidden';
+      this.toastTimeout = null;
+    }, 2800);
+  }
+
+  private triggerSlpError(required: number, towerName: string) {
+    sounds.playError();
+    this.showToast(`⚠️ ¡SLP Insuficiente! Necesitas ${required} SLP para ${towerName}.`, 'error');
+    if (this.slpPill) {
+      this.slpPill.classList.remove('shake-error');
+      void this.slpPill.offsetWidth; // Force reflow
+      this.slpPill.classList.add('shake-error');
+      setTimeout(() => this.slpPill.classList.remove('shake-error'), 450);
+    }
   }
 
   private onPointerMove(e: PointerEvent) {
@@ -432,19 +510,17 @@ class TowerDefenseGame {
           this.cardCooldowns[config.type] = bDuration;
 
           // Clear selection
-          this.selectedBuildType = null;
-          document.querySelectorAll('.tower-card').forEach(c => c.classList.remove('selected'));
-          this.arena.hidePlacementPreview();
+          this.deselectBuildType();
 
           this.updateHUD();
           this.openInspector(tower);
           return;
         } else {
           if (this.slp < config.cost) {
-            sounds.playGameOver();
-            alert(`¡No tienes suficiente SLP! Necesitas ${config.cost} SLP.`);
+            this.triggerSlpError(config.cost, config.name);
           } else {
-            sounds.playHit();
+            sounds.playError();
+            this.showToast('⚠️ No puedes colocar una torre aquí (terreno bloqueado o muy cerca del camino).', 'error');
           }
           return;
         }
@@ -556,7 +632,7 @@ class TowerDefenseGame {
     const cost = config.upgradeCost * tower.level;
 
     if (this.slp < cost) {
-      sounds.playGameOver();
+      this.triggerSlpError(cost, `la mejora de ${config.name}`);
       return;
     }
 
@@ -740,6 +816,12 @@ class TowerDefenseGame {
   }
 
   private loop() {
+    // If game has not been started from welcome screen, only render the 3D scene (no game/timer progression)
+    if (!this.isGameStarted) {
+      this.arena.renderer.render(this.arena.scene, this.arena.camera);
+      return;
+    }
+
     const now = performance.now();
     const rawDelta = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;

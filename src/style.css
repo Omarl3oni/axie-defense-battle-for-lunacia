@@ -111,6 +111,21 @@ body, html {
 .slp-pill {
   border-color: rgba(255, 183, 3, 0.4);
   color: #fef08a;
+  transition: all 0.25s ease;
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.slp-pill.shake-error {
+  animation: shakeError 0.4s ease-in-out;
+  border-color: #ef4444 !important;
+  background: rgba(185, 28, 28, 0.9) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.8) !important;
 }
 
 .hud-controls-group {
@@ -136,6 +151,42 @@ body, html {
   background: var(--accent-gold);
   color: #000;
   transform: translateY(-1px);
+}
+
+.btn-hud-action.muted {
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+
+/* Floating Notification Toast */
+.td-toast {
+  position: absolute;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-15px);
+  background: rgba(15, 23, 42, 0.94);
+  border: 1.5px solid #ef4444;
+  color: #f8fafc;
+  font-weight: 800;
+  font-size: 1rem;
+  padding: 10px 24px;
+  border-radius: 999px;
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.35);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.td-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.td-toast.error {
+  border-color: #ef4444;
+  color: #fca5a5;
 }
 
 .btn-start-wave {
