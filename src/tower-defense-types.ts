@@ -10,6 +10,7 @@ export interface TowerConfig {
   modelFile: string;
   cost: number;
   upgradeCost: number;
+  buildTime: number; // Construction duration in seconds
   range: number;
   attackSpeed: number; // Attacks per second
   damage: number;
@@ -32,6 +33,17 @@ export interface TowerInstance {
   mesh: THREE.Group;
   mixer?: THREE.AnimationMixer;
   rangeMesh?: THREE.Mesh;
+
+  // Construction & Upgrade Cooldown State
+  isUnderConstruction: boolean;
+  constructionTimer: number;
+  constructionDuration: number;
+  isUpgrading: boolean;
+  upgradeTimer: number;
+  upgradeDuration: number;
+  targetLevel: number;
+  progressBarGroup?: THREE.Group;
+  progressBarFill?: THREE.Mesh;
 }
 
 export type EnemyType = 'scout' | 'warrior' | 'armored' | 'boss';

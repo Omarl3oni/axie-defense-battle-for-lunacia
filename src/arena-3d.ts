@@ -327,6 +327,31 @@ export class Arena3D {
     return { mesh: rootGroup, mixer };
   }
 
+  public createTowerProgressBar(): { group: THREE.Group; fill: THREE.Mesh } {
+    const group = new THREE.Group();
+    group.position.y = 2.1;
+
+    // Background bar
+    const bg = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.6, 0.22),
+      new THREE.MeshBasicMaterial({ color: 0x0a101d, side: THREE.DoubleSide })
+    );
+    bg.rotation.x = -Math.PI / 4;
+    group.add(bg);
+
+    // Fill bar
+    const fill = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.54, 0.17),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
+    );
+    fill.rotation.x = -Math.PI / 4;
+    fill.position.z = 0.01;
+    group.add(fill);
+
+    group.visible = false;
+    return { group, fill };
+  }
+
   public createEnemyMesh(modelFile: string, scale: number, colorFilter?: number): { mesh: THREE.Group; mixer?: THREE.AnimationMixer; healthBarFill: THREE.Mesh } {
     const cached = this.modelCache.get(modelFile);
     let group: THREE.Group;

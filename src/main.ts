@@ -30,9 +30,15 @@ class TowerDefenseGame {
   private readonly spellMaxCooldown: number = 25.0;
   private isSpellAiming: boolean = false;
 
-  // Selections
+  // Selections & Card Cooldowns
   private selectedBuildType: TowerType | null = null;
   private inspectedTower: TowerInstance | null = null;
+  private cardCooldowns: Record<TowerType, number> = {
+    pomodoro: 0,
+    kotaro: 0,
+    bing: 0,
+    tripp: 0
+  };
 
   // Entities
   private towers: TowerInstance[] = [];
@@ -142,12 +148,16 @@ class TowerDefenseGame {
     });
 
     // Bottom Tower Cards Click (Select Tower Type to place)
-    // Bottom Tower Cards Click (Select Tower Type to place)
     const towerCards = document.querySelectorAll('.tower-card');
     towerCards.forEach(card => {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
         const type = card.getAttribute('data-tower') as TowerType;
+
+        if (this.cardCooldowns[type] > 0) {
+          sounds.playHit();
+          return;
+        }
 
         if (this.selectedBuildType === type) {
           // Deselect
@@ -227,8 +237,13 @@ class TowerDefenseGame {
     this.spellCooldown = 0;
     this.isSpellAiming = false;
     this.selectedBuildType = null;
+    this.cardCooldowns = { pomodoro: 0, kotaro: 0, bing: 0, tripp: 0 };
     this.arena.hidePlacementPreview();
-    document.querySelectorAll('.tower-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.tower-card').forEach(c => {
+      c.classList.remove('selected', 'cooldown');
+      const ov = c.querySelector('.tower-card-cooldown-overlay');
+      if (ov) ov.remove();
+    });
     this.closeInspector();
 
     // Clear Entities
@@ -301,6 +316,14 @@ class TowerDefenseGame {
 
           const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, 1);
           mesh.position.set(hitPoint.x, 0, hitPoint.z);
+
+          // Create & attach 3D overhead progress bar for construction
+          const { group: pbGroup, fill: pbFill } = this.arena.createTowerProgressBar();
+          pbGroup.visible = true;
+          (pbFill.material as THREE.MeshBasicMaterial).color.setHex(0x00f0ff);
+          pbFill.scale.set(0.01, 1, 1);
+          mesh.add(pbGroup);
+
           this.arena.scene.add(mesh);
 
           const tower: TowerInstance = {
@@ -314,10 +337,22 @@ class TowerDefenseGame {
             attackTimer: 0,
             targetEnemyId: null,
             mesh,
-            mixer
+            mixer,
+            isUnderConstruction: true,
+            constructionTimer: config.buildTime,
+            constructionDuration: config.buildTime,
+            isUpgrading: false,
+            upgradeTimer: 0,
+            upgradeDuration: 0,
+            targetLevel: 1,
+            progressBarGroup: pbGroup,
+            progressBarFill: pbFill
           };
 
           this.towers.push(tower);
+
+          // Trigger card cooldown in tray
+          this.cardCooldowns[config.type] = config.buildTime;
 
           // Clear selection
           this.selectedBuildType = null;
@@ -373,18 +408,28 @@ class TowerDefenseGame {
 
     this.inspectAvatar.textContent = config.icon;
     this.inspectName.textContent = `${config.name} (${config.classLabel})`;
-    this.inspectLevelTag.textContent = `Nivel ${tower.level}`;
     this.inspectDmg.textContent = `${Math.round(tower.damage)}`;
     this.inspectRange.textContent = `${tower.range.toFixed(1)}`;
     this.inspectSpeed.textContent = `${tower.attackSpeed.toFixed(1)}/s`;
     this.inspectTrait.textContent = config.specialTrait;
 
-    // Upgrade Cost
-    const currentUpCost = config.upgradeCost * tower.level;
-    this.upgradeCostText.textContent = `${currentUpCost} ⚡`;
-    this.upgradeTowerBtn.disabled = tower.level >= 3 || this.slp < currentUpCost;
-    if (tower.level >= 3) {
-      this.upgradeCostText.textContent = 'MÁXIMO';
+    if (tower.isUnderConstruction) {
+      this.inspectLevelTag.textContent = `En Construcción... (${Math.ceil(tower.constructionTimer)}s)`;
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = 'CONSTRUYENDO...';
+    } else if (tower.isUpgrading) {
+      this.inspectLevelTag.textContent = `Mejorando a Nivel ${tower.targetLevel}...`;
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = `MEJORANDO... (${Math.ceil(tower.upgradeTimer)}s)`;
+    } else {
+      this.inspectLevelTag.textContent = `Nivel ${tower.level}`;
+      // Upgrade Cost
+      const currentUpCost = config.upgradeCost * tower.level;
+      this.upgradeCostText.textContent = `${currentUpCost} ⚡`;
+      this.upgradeTowerBtn.disabled = tower.level >= 3 || this.slp < currentUpCost;
+      if (tower.level >= 3) {
+        this.upgradeCostText.textContent = 'MÁXIMO';
+      }
     }
 
     // Sell Refund (+70% of total invested)
@@ -405,6 +450,8 @@ class TowerDefenseGame {
   private upgradeSelectedTower() {
     if (!this.inspectedTower || this.inspectedTower.level >= 3) return;
     const tower = this.inspectedTower;
+    if (tower.isUnderConstruction || tower.isUpgrading) return;
+
     const config = TOWER_CONFIGS[tower.type];
     const cost = config.upgradeCost * tower.level;
 
@@ -414,21 +461,22 @@ class TowerDefenseGame {
     }
 
     this.slp -= cost;
-    tower.level++;
-    tower.damage = Math.round(tower.damage * 1.65);
-    tower.range += 0.8;
-    tower.attackSpeed += 0.2;
 
-    sounds.playLevelUp();
+    // Cooldown duration for upgrade: Level 2 = 3.5s, Level 3 = 5.5s
+    const duration = tower.level === 1 ? 3.5 : 5.5;
+    tower.isUpgrading = true;
+    tower.upgradeTimer = duration;
+    tower.upgradeDuration = duration;
+    tower.targetLevel = tower.level + 1;
 
-    // Visual aura update
-    this.arena.scene.remove(tower.mesh);
-    const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, tower.level);
-    mesh.position.copy(tower.position);
-    this.arena.scene.add(mesh);
-    tower.mesh = mesh;
-    tower.mixer = mixer;
+    // Show gold progress bar
+    if (tower.progressBarGroup && tower.progressBarFill) {
+      (tower.progressBarFill.material as THREE.MeshBasicMaterial).color.setHex(0xffb703);
+      tower.progressBarFill.scale.set(0.01, 1, 1);
+      tower.progressBarGroup.visible = true;
+    }
 
+    sounds.playShoot();
     this.updateHUD();
     this.openInspector(tower);
   }
@@ -539,6 +587,31 @@ class TowerDefenseGame {
       this.updateHUD();
     }
 
+    // 1b. Update Tower Card Cooldowns
+    const towerTypes: TowerType[] = ['pomodoro', 'kotaro', 'bing', 'tripp'];
+    for (const type of towerTypes) {
+      if (this.cardCooldowns[type] > 0) {
+        this.cardCooldowns[type] = Math.max(0, this.cardCooldowns[type] - delta);
+        const card = document.querySelector(`.tower-card[data-tower="${type}"]`) as HTMLElement;
+        if (card) {
+          if (this.cardCooldowns[type] > 0) {
+            card.classList.add('cooldown');
+            let overlay = card.querySelector('.tower-card-cooldown-overlay') as HTMLElement;
+            if (!overlay) {
+              overlay = document.createElement('div');
+              overlay.className = 'tower-card-cooldown-overlay';
+              card.appendChild(overlay);
+            }
+            overlay.textContent = `${Math.ceil(this.cardCooldowns[type])}s`;
+          } else {
+            card.classList.remove('cooldown');
+            const overlay = card.querySelector('.tower-card-cooldown-overlay');
+            if (overlay) overlay.remove();
+          }
+        }
+      }
+    }
+
     // 2. Wave Spawning
     if (this.isWaveRunning) {
       this.waveTimer += delta;
@@ -614,6 +687,69 @@ class TowerDefenseGame {
 
     // 4. Update Towers Targeting & Firing
     for (const t of this.towers) {
+      // A. Construction Progress
+      if (t.isUnderConstruction) {
+        t.constructionTimer -= delta;
+        const progress = Math.min(1.0, Math.max(0.01, 1 - (t.constructionTimer / t.constructionDuration)));
+        if (t.progressBarFill) t.progressBarFill.scale.set(progress, 1, 1);
+
+        if (this.inspectedTower?.id === t.id) {
+          this.inspectLevelTag.textContent = `En Construcción... (${Math.ceil(t.constructionTimer)}s)`;
+          this.upgradeTowerBtn.disabled = true;
+          this.upgradeCostText.textContent = 'CONSTRUYENDO...';
+        }
+
+        if (t.constructionTimer <= 0) {
+          t.isUnderConstruction = false;
+          if (t.progressBarGroup) t.progressBarGroup.visible = false;
+          sounds.playLevelUp();
+          if (this.inspectedTower?.id === t.id) this.openInspector(t);
+        }
+        continue; // Tower cannot attack while under construction
+      }
+
+      // B. Upgrade Channeling Progress
+      if (t.isUpgrading) {
+        t.upgradeTimer -= delta;
+        const progress = Math.min(1.0, Math.max(0.01, 1 - (t.upgradeTimer / t.upgradeDuration)));
+        if (t.progressBarFill) t.progressBarFill.scale.set(progress, 1, 1);
+
+        if (this.inspectedTower?.id === t.id) {
+          this.inspectLevelTag.textContent = `Mejorando a Nivel ${t.targetLevel}...`;
+          this.upgradeCostText.textContent = `MEJORANDO... (${Math.ceil(t.upgradeTimer)}s)`;
+          this.upgradeTowerBtn.disabled = true;
+        }
+
+        if (t.upgradeTimer <= 0) {
+          t.isUpgrading = false;
+          if (t.progressBarGroup) t.progressBarGroup.visible = false;
+          t.level = t.targetLevel;
+          t.damage = Math.round(t.damage * 1.65);
+          t.range += 0.8;
+          t.attackSpeed += 0.2;
+
+          // Replace mesh with upgraded visuals & aura
+          const config = TOWER_CONFIGS[t.type];
+          this.arena.scene.remove(t.mesh);
+          const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, t.level);
+          mesh.position.copy(t.position);
+
+          // Re-attach progress bar
+          const { group: pbGroup, fill: pbFill } = this.arena.createTowerProgressBar();
+          mesh.add(pbGroup);
+          t.mesh = mesh;
+          t.mixer = mixer;
+          t.progressBarGroup = pbGroup;
+          t.progressBarFill = pbFill;
+          this.arena.scene.add(mesh);
+
+          sounds.playLevelUp();
+          if (this.inspectedTower?.id === t.id) this.openInspector(t);
+        }
+        continue; // Tower does not attack while channeling upgrade
+      }
+
+      // C. Active Combat targeting and firing
       if (t.mixer) t.mixer.update(delta);
 
       t.attackTimer += delta;

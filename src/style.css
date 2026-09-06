@@ -418,6 +418,28 @@ body, html {
   transform: translateY(-4px);
 }
 
+.tower-card.cooldown {
+  pointer-events: none;
+  filter: grayscale(0.7) brightness(0.6);
+  opacity: 0.85;
+}
+
+.tower-card-cooldown-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: rgba(10, 16, 29, 0.78);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--accent-aqua);
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.9);
+  z-index: 10;
+}
+
 .card-cost {
   position: absolute;
   top: -10px;
