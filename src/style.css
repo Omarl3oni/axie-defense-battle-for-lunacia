@@ -1226,13 +1226,22 @@ body, html {
   text-shadow: 0 0 12px rgba(0, 240, 255, 0.95);
   pointer-events: none;
   z-index: 2002;
-  transition: all 0.35s ease;
+  transition: opacity 0.25s ease;
   animation: bounceArrow 0.8s infinite alternate ease-in-out;
+}
+
+.tutorial-pointer-arrow.side-arrow {
+  animation: bounceArrowSide 0.8s infinite alternate ease-in-out;
 }
 
 @keyframes bounceArrow {
   from { transform: translateY(0) scale(1); }
   to { transform: translateY(-8px) scale(1.1); }
+}
+
+@keyframes bounceArrowSide {
+  from { transform: translateX(0) scale(1); }
+  to { transform: translateX(8px) scale(1.1); }
 }
 
 /* Character Guide Dialog Card */
@@ -1241,15 +1250,17 @@ body, html {
   width: 440px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 40px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: rgba(13, 20, 36, 0.97);
   border: 1.5px solid var(--accent-aqua);
   border-radius: 20px;
-  padding: 22px 24px;
+  padding: 18px 22px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 240, 255, 0.28);
   backdrop-filter: blur(18px);
   z-index: 2003;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-sizing: border-box;
 }
 
 .tutorial-card-header {
@@ -1257,6 +1268,7 @@ body, html {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .tutorial-guide-avatar {
@@ -1310,17 +1322,19 @@ body, html {
 }
 
 .tutorial-title {
-  font-size: 1.25rem;
+  font-size: 1.22rem;
   font-weight: 900;
   color: #fff;
   margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .tutorial-body {
-  font-size: 0.95rem;
+  font-size: 0.93rem;
   color: #cbd5e1;
-  line-height: 1.6;
-  margin-bottom: 18px;
+  line-height: 1.55;
+  margin-bottom: 16px;
+  overflow-y: auto;
 }
 
 .tutorial-body strong {
@@ -1333,6 +1347,7 @@ body, html {
   justify-content: space-between;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .tutorial-dots {

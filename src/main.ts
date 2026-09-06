@@ -57,8 +57,8 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     avatar: '🐾'
   },
   {
-    title: '☄️ Hechizo y Mejoras de Nivel',
-    body: '• <strong>Hechizo de Emergencia:</strong> Si se te amontonan muchos monstruos a la vez, pulsa este botón para lanzar la <strong>Lluvia de Espinas</strong> ☄️ y arrasar la zona.<br><br>• <strong>Mejoras e Inspector:</strong> Haz clic sobre cualquier Axie colocado en el césped para <strong>subirlo de nivel</strong> (¡desbloquean superpoderes al nivel 3!) y cambiar su prioridad de disparo.',
+    title: '☄️ Hechizo de Emergencia',
+    body: '¿Se te escapan muchas quimeras a la vez? Pulsa este botón para lanzar la <strong>Lluvia de Espinas</strong> ☄️ en cualquier parte del camino.<br><br>💡 <em>¡Además, puedes hacer clic sobre cualquier Axie colocado en el césped para <strong>subirlo de nivel</strong> y cambiar su prioridad de disparo!</em>',
     targetSelector: '.spell-container',
     cardPlacement: 'left',
     avatar: '☄️'
@@ -437,6 +437,14 @@ class TowerDefenseGame {
     const step = TUTORIAL_STEPS[this.currentTutorialStep];
     if (!step) return;
 
+    // Reset explicit positioning styles
+    this.tutorialCard.style.top = 'auto';
+    this.tutorialCard.style.bottom = 'auto';
+    this.tutorialCard.style.left = 'auto';
+    this.tutorialCard.style.right = 'auto';
+    this.tutorialCard.style.transform = 'none';
+    this.tutorialPointerArrow.classList.remove('side-arrow');
+
     if (!step.targetSelector) {
       // Centered dialog
       this.tutorialFocusBox.classList.add('hidden');
@@ -475,17 +483,15 @@ class TowerDefenseGame {
       const cardLeft = Math.max(16, Math.min(window.innerWidth - 456, rect.left + rect.width / 2 - 220));
       this.tutorialCard.style.top = `${cardTop}px`;
       this.tutorialCard.style.left = `${cardLeft}px`;
-      this.tutorialCard.style.transform = 'none';
 
       this.tutorialPointerArrow.textContent = '▲';
       this.tutorialPointerArrow.style.top = `${rect.bottom + 2}px`;
       this.tutorialPointerArrow.style.left = `${rect.left + rect.width / 2 - 14}px`;
     } else if (step.cardPlacement === 'above') {
-      const cardTop = Math.max(16, rect.top - 280);
+      const cardBottom = Math.max(20, window.innerHeight - rect.top + 20);
       const cardLeft = Math.max(16, Math.min(window.innerWidth - 456, rect.left + rect.width / 2 - 220));
-      this.tutorialCard.style.top = `${cardTop}px`;
+      this.tutorialCard.style.bottom = `${cardBottom}px`;
       this.tutorialCard.style.left = `${cardLeft}px`;
-      this.tutorialCard.style.transform = 'none';
 
       this.tutorialPointerArrow.textContent = '▼';
       this.tutorialPointerArrow.style.top = `${rect.top - 34}px`;
@@ -493,32 +499,16 @@ class TowerDefenseGame {
     } else if (step.cardPlacement === 'left') {
       const cardWidth = 440;
       const cardLeft = Math.max(16, rect.left - cardWidth - 28);
-      const cardTop = Math.max(20, Math.min(window.innerHeight - 300, rect.top + rect.height / 2 - 140));
-      this.tutorialCard.style.top = `${cardTop}px`;
+      // Anchor to bottom to ensure navigation footer buttons never clip off-screen
+      const cardBottom = Math.max(24, window.innerHeight - rect.bottom);
+      this.tutorialCard.style.bottom = `${cardBottom}px`;
       this.tutorialCard.style.left = `${cardLeft}px`;
-      this.tutorialCard.style.transform = 'none';
 
+      this.tutorialPointerArrow.classList.add('side-arrow');
       this.tutorialPointerArrow.textContent = '▶';
       this.tutorialPointerArrow.style.top = `${rect.top + rect.height / 2 - 16}px`;
-      this.tutorialPointerArrow.style.left = `${rect.left - 26}px`;
+      this.tutorialPointerArrow.style.left = `${rect.left - 28}px`;
     }
-
-    // Viewport Boundary Clamping: Ensure the card and all its buttons are 100% visible on screen
-    requestAnimationFrame(() => {
-      const cRect = this.tutorialCard.getBoundingClientRect();
-      if (cRect.bottom > window.innerHeight - 16) {
-        this.tutorialCard.style.top = `${Math.max(16, window.innerHeight - cRect.height - 20)}px`;
-      }
-      if (cRect.top < 16) {
-        this.tutorialCard.style.top = '16px';
-      }
-      if (cRect.right > window.innerWidth - 16) {
-        this.tutorialCard.style.left = `${Math.max(16, window.innerWidth - cRect.width - 20)}px`;
-      }
-      if (cRect.left < 16) {
-        this.tutorialCard.style.left = '16px';
-      }
-    });
   }
 
   private nextTutorialStep() {
