@@ -1240,6 +1240,8 @@ body, html {
   position: absolute;
   width: 440px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   background: rgba(13, 20, 36, 0.97);
   border: 1.5px solid var(--accent-aqua);
   border-radius: 20px;

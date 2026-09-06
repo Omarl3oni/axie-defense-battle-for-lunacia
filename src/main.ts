@@ -23,7 +23,7 @@ interface TutorialStep {
   title: string;
   body: string;
   targetSelector: string | null;
-  cardPlacement: 'center' | 'below' | 'above';
+  cardPlacement: 'center' | 'below' | 'above' | 'left';
   avatar: string;
 }
 
@@ -60,7 +60,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: '☄️ Hechizo y Mejoras de Nivel',
     body: '• <strong>Hechizo de Emergencia:</strong> Si se te amontonan muchos monstruos a la vez, pulsa este botón para lanzar la <strong>Lluvia de Espinas</strong> ☄️ y arrasar la zona.<br><br>• <strong>Mejoras e Inspector:</strong> Haz clic sobre cualquier Axie colocado en el césped para <strong>subirlo de nivel</strong> (¡desbloquean superpoderes al nivel 3!) y cambiar su prioridad de disparo.',
     targetSelector: '.spell-container',
-    cardPlacement: 'below',
+    cardPlacement: 'left',
     avatar: '☄️'
   },
   {
@@ -388,13 +388,6 @@ class TowerDefenseGame {
         this.positionTutorialElements();
       }
     });
-
-    // Auto-launch interactive tutorial on first visit
-    if (!localStorage.getItem('axie_td_tutorial_seen')) {
-      setTimeout(() => {
-        this.startTutorial();
-      }, 350);
-    }
   }
 
   private startTutorial() {
@@ -478,7 +471,7 @@ class TowerDefenseGame {
     this.tutorialPointerArrow.classList.remove('hidden');
 
     if (step.cardPlacement === 'below') {
-      const cardTop = rect.bottom + 26;
+      const cardTop = rect.bottom + 24;
       const cardLeft = Math.max(16, Math.min(window.innerWidth - 456, rect.left + rect.width / 2 - 220));
       this.tutorialCard.style.top = `${cardTop}px`;
       this.tutorialCard.style.left = `${cardLeft}px`;
@@ -497,7 +490,35 @@ class TowerDefenseGame {
       this.tutorialPointerArrow.textContent = '▼';
       this.tutorialPointerArrow.style.top = `${rect.top - 34}px`;
       this.tutorialPointerArrow.style.left = `${rect.left + rect.width / 2 - 14}px`;
+    } else if (step.cardPlacement === 'left') {
+      const cardWidth = 440;
+      const cardLeft = Math.max(16, rect.left - cardWidth - 28);
+      const cardTop = Math.max(20, Math.min(window.innerHeight - 300, rect.top + rect.height / 2 - 140));
+      this.tutorialCard.style.top = `${cardTop}px`;
+      this.tutorialCard.style.left = `${cardLeft}px`;
+      this.tutorialCard.style.transform = 'none';
+
+      this.tutorialPointerArrow.textContent = '▶';
+      this.tutorialPointerArrow.style.top = `${rect.top + rect.height / 2 - 16}px`;
+      this.tutorialPointerArrow.style.left = `${rect.left - 26}px`;
     }
+
+    // Viewport Boundary Clamping: Ensure the card and all its buttons are 100% visible on screen
+    requestAnimationFrame(() => {
+      const cRect = this.tutorialCard.getBoundingClientRect();
+      if (cRect.bottom > window.innerHeight - 16) {
+        this.tutorialCard.style.top = `${Math.max(16, window.innerHeight - cRect.height - 20)}px`;
+      }
+      if (cRect.top < 16) {
+        this.tutorialCard.style.top = '16px';
+      }
+      if (cRect.right > window.innerWidth - 16) {
+        this.tutorialCard.style.left = `${Math.max(16, window.innerWidth - cRect.width - 20)}px`;
+      }
+      if (cRect.left < 16) {
+        this.tutorialCard.style.left = '16px';
+      }
+    });
   }
 
   private nextTutorialStep() {
