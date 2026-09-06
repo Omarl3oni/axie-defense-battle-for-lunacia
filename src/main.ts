@@ -272,6 +272,9 @@ class Game {
       this.upgrades.set('horn_pocky', 1);
     }
 
+    // Oleada inicial de quimeras para acción inmediata desde el segundo 0
+    this.enemyManager.spawnInitialWave(this.player.mesh.position, 8);
+
     this.updateHUD();
     this.updatePartsInventoryUI();
 

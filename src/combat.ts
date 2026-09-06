@@ -85,8 +85,11 @@ export class CombatManager {
       for (const enemy of enemies) {
         if (p.hitEnemies.has(enemy.id)) continue;
 
-        const dist = enemy.mesh.position.distanceTo(p.mesh.position);
-        if (dist < enemy.radius + 0.5) {
+        const dist = Math.hypot(
+          enemy.mesh.position.x - p.mesh.position.x,
+          enemy.mesh.position.z - p.mesh.position.z
+        );
+        if (dist < enemy.radius + 0.7) {
           p.hitEnemies.add(enemy.id);
           enemy.hp -= p.damage;
           this.showDamageNumber(enemy.mesh.position, p.damage, p.isCrit);
@@ -227,7 +230,11 @@ export class CombatManager {
       shield.mesh.getWorldPosition(worldPos);
 
       for (const enemy of enemies) {
-        if (enemy.mesh.position.distanceTo(worldPos) < enemy.radius + 0.5) {
+        const dist = Math.hypot(
+          enemy.mesh.position.x - worldPos.x,
+          enemy.mesh.position.z - worldPos.z
+        );
+        if (dist < enemy.radius + 0.8) {
           const isCrit = Math.random() < stats.critRate;
           const dmg = Math.round(isCrit ? shield.damage * stats.critDamage : shield.damage);
           enemy.hp -= dmg * delta * 2; // Continuous ticking damage
