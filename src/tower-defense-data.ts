@@ -1,5 +1,129 @@
 import * as THREE from 'three';
-import { TowerType, TowerConfig, EnemyType, EnemyConfig, WaveConfig, RuneConfig } from './tower-defense-types';
+import { TowerType, TowerConfig, BuildingType, BuildingConfig, EnemyType, EnemyConfig, WaveConfig, RuneConfig, PathArchetype, TechConfig } from './tower-defense-types';
+
+export const BUILDING_CONFIGS: Record<BuildingType, BuildingConfig> = {
+  hemp_hut: {
+    type: 'hemp_hut',
+    name: 'Cabaña de Cáñamo',
+    categoryLabel: 'Edificio',
+    icon: '🛖',
+    imageFile: 'assets/homeland/hemp_hut.webp',
+    cost: 75,
+    buildTime: 3.0,
+    populationBonus: 2,
+    description: 'Cabaña de descanso. Alberga axies trabajadores y guardianes, aumentando la población.',
+    specialTrait: '🏠 +2 Capacidad de Población de Axies'
+  },
+  hummer_hut: {
+    type: 'hummer_hut',
+    name: 'Herrería',
+    categoryLabel: 'Edificio',
+    icon: '⚒️',
+    imageFile: 'assets/homeland_all/buildings/hummer_hut_2.jpg',
+    upgradeImageFile: 'assets/homeland_all/buildings/hummer_hut_3.jpg',
+    cost: 120,
+    upgradeCost: 160,
+    upgradeTime: 6.0,
+    buildTime: 4.5,
+    populationBonus: 0,
+    description: 'Herrería de forja e investigación. Desarrolla tecnologías para torres. En Nivel 2 desbloquea mejoras a Nivel 3.',
+    specialTrait: '🔬 Forja de Tecnologías de Torres'
+  }
+};
+
+export const TECH_CONFIGS: Record<string, TechConfig> = {
+  // --- Nivel 2 (Disponibles desde Taller Nivel 1) ---
+  'tech_pomodoro_2': {
+    id: 'tech_pomodoro_2',
+    towerType: 'pomodoro',
+    targetLevel: 2,
+    reqBuildingLevel: 1,
+    nameKey: 'techPomodoro2Name',
+    descKey: 'techPomodoro2Desc',
+    cost: 80,
+    researchTime: 4.0,
+    icon: '🌿'
+  },
+  'tech_kotaro_2': {
+    id: 'tech_kotaro_2',
+    towerType: 'kotaro',
+    targetLevel: 2,
+    reqBuildingLevel: 1,
+    nameKey: 'techKotaro2Name',
+    descKey: 'techKotaro2Desc',
+    cost: 95,
+    researchTime: 5.0,
+    icon: '⚔️'
+  },
+  'tech_bing_2': {
+    id: 'tech_bing_2',
+    towerType: 'bing',
+    targetLevel: 2,
+    reqBuildingLevel: 1,
+    nameKey: 'techBing2Name',
+    descKey: 'techBing2Desc',
+    cost: 110,
+    researchTime: 5.5,
+    icon: '🌊'
+  },
+  'tech_tripp_2': {
+    id: 'tech_tripp_2',
+    towerType: 'tripp',
+    targetLevel: 2,
+    reqBuildingLevel: 1,
+    nameKey: 'techTripp2Name',
+    descKey: 'techTripp2Desc',
+    cost: 125,
+    researchTime: 6.0,
+    icon: '🎯'
+  },
+
+  // --- Nivel 3 (Requiere Taller Nivel 2 - Otorga permiso para 1 torre) ---
+  'tech_pomodoro_3': {
+    id: 'tech_pomodoro_3',
+    towerType: 'pomodoro',
+    targetLevel: 3,
+    reqBuildingLevel: 2,
+    nameKey: 'techPomodoro3Name',
+    descKey: 'techPomodoro3Desc',
+    cost: 180,
+    researchTime: 8.0,
+    icon: '💥'
+  },
+  'tech_kotaro_3': {
+    id: 'tech_kotaro_3',
+    towerType: 'kotaro',
+    targetLevel: 3,
+    reqBuildingLevel: 2,
+    nameKey: 'techKotaro3Name',
+    descKey: 'techKotaro3Desc',
+    cost: 210,
+    researchTime: 8.5,
+    icon: '🌪️'
+  },
+  'tech_bing_3': {
+    id: 'tech_bing_3',
+    towerType: 'bing',
+    targetLevel: 3,
+    reqBuildingLevel: 2,
+    nameKey: 'techBing3Name',
+    descKey: 'techBing3Desc',
+    cost: 230,
+    researchTime: 9.0,
+    icon: '🌊'
+  },
+  'tech_tripp_3': {
+    id: 'tech_tripp_3',
+    towerType: 'tripp',
+    targetLevel: 3,
+    reqBuildingLevel: 2,
+    nameKey: 'techTripp3Name',
+    descKey: 'techTripp3Desc',
+    cost: 260,
+    researchTime: 9.5,
+    icon: '⚡'
+  }
+};
 
 export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
   pomodoro: {
@@ -7,6 +131,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Pomodoro',
     classLabel: 'Planta',
     icon: '🍅',
+    avatarImage: './assets/mascots/pomodoro_avatar.png',
     modelFile: 'pomodoro.glb',
     cost: 100,
     upgradeCost: 90,
@@ -23,6 +148,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Kotaro',
     classLabel: 'Bestia',
     icon: '🦊',
+    avatarImage: './assets/mascots/kotaro_avatar.png',
     modelFile: 'kotaro.glb',
     cost: 150,
     upgradeCost: 130,
@@ -39,6 +165,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Bing',
     classLabel: 'Aqua',
     icon: '🌊',
+    avatarImage: './assets/mascots/bing_avatar.png',
     modelFile: 'bing.glb',
     cost: 175,
     upgradeCost: 150,
@@ -55,6 +182,7 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
     name: 'Tripp',
     classLabel: 'Pájaro',
     icon: '🪶',
+    avatarImage: './assets/mascots/tripp_avatar.png',
     modelFile: 'tripp.glb',
     cost: 200,
     upgradeCost: 170,
@@ -71,78 +199,183 @@ export const TOWER_CONFIGS: Record<TowerType, TowerConfig> = {
 export const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
   scout: {
     type: 'scout',
-    name: 'Quimera Berserker',
+    name: 'Axie Xia (Veloz)',
     traitLabel: '⚡ Sprint Feroz',
     modelFile: 'xia.glb',
     baseHp: 95,
     speed: 4.4,
     rewardSlp: 12,
-    scale: 1.05,
-    colorFilter: 0xdc2626,
+    scale: 0.95,
     hasSprint: true
   },
   warrior: {
     type: 'warrior',
-    name: 'Quimera Bestia Feral',
+    name: 'Axie Kibo (Guerrero)',
     traitLabel: '🛡️ Regeneración',
     modelFile: 'kibo.glb',
     baseHp: 220,
     speed: 2.7,
     rewardSlp: 22,
-    scale: 1.25,
-    colorFilter: 0x15803d,
+    scale: 1.1,
     regenRate: 14
   },
   armored: {
     type: 'armored',
-    name: 'Quimera Acorazada',
+    name: 'Axie Paladill (Tanque)',
     traitLabel: '🧱 Anti-Slow & Blindaje',
     modelFile: 'paladill.glb',
     baseHp: 500,
     speed: 1.6,
     rewardSlp: 45,
-    scale: 1.45,
-    colorFilter: 0x6b21a8,
+    scale: 1.35,
     isImmuneSlow: true,
     armorReduction: 0.35
   },
   toxic: {
     type: 'toxic',
-    name: 'Quimera Tóxica',
+    name: 'Axie Bing (Aura)',
     traitLabel: '🧪 Anti-Veneno & Aura',
     modelFile: 'bing.glb',
     baseHp: 320,
     speed: 2.4,
     rewardSlp: 35,
-    scale: 1.2,
-    colorFilter: 0x059669,
+    scale: 1.1,
     isImmunePoison: true
   },
   boss: {
     type: 'boss',
-    name: 'Reina Quimera Ancestral',
+    name: 'Axie Kibo Titánico',
     traitLabel: '👑 Colosal Imparable',
     modelFile: 'kibo.glb',
     baseHp: 3600,
     speed: 1.35,
     rewardSlp: 300,
-    scale: 2.5,
-    colorFilter: 0x991b1b
+    scale: 2.0
   }
 };
 
-// S-curved 3D Waypoints across Lunacia Forest
-export const PATH_WAYPOINTS: THREE.Vector3[] = [
-  new THREE.Vector3(-19, 0, -8),   // Portal Start
-  new THREE.Vector3(-11, 0, -8),
-  new THREE.Vector3(-8, 0, -2),
-  new THREE.Vector3(-8, 0, 7),     // First big curve down
-  new THREE.Vector3(-1, 0, 7),
-  new THREE.Vector3(1, 0, -4),     // Second big curve up
-  new THREE.Vector3(8, 0, -4),
-  new THREE.Vector3(8, 0, 9),      // Third curve down
-  new THREE.Vector3(15, 0, 9),
-  new THREE.Vector3(19, 0, 2)      // Ancient Tree Goal
+// Procedural Path Archetypes across Lunacia Forest (Killzone & Multi-Loop Circuits)
+// CRITICAL RULE: Minimum separation between any parallel roads is >= 4 cells (at least 3 grass tiles between roads for 3x3 towers)
+export const PATH_ARCHETYPES: PathArchetype[] = [
+  {
+    id: 'outer_ambush',
+    name: 'El Gran Circuito en Ocho & Killzone Central',
+    description: 'Ruta en forma de infinito con Killzone central. Todos los pasillos paralelos tienen al menos 3 baldosas de hierba libres para ubicar torres 3x3 a ambos lados del camino.',
+    gridTurns: [
+      { col: 1, row: 4 },
+      { col: 18, row: 4 },
+      { col: 18, row: 10 },
+      { col: 5, row: 10 },
+      { col: 5, row: 23 },
+      { col: 23, row: 23 },
+      // Cruce central con separación vertical amplia
+      { col: 23, row: 14 },
+      { col: 41, row: 14 },
+      { col: 41, row: 4 },
+      { col: 29, row: 4 },
+      { col: 29, row: 23 },
+      { col: 37, row: 23 },
+      { col: 37, row: 18 },
+      { col: 44, row: 18 }
+    ]
+  },
+  {
+    id: 'clover_killzone',
+    name: 'El Trébol de Cuatro Hojas & Corazón de Batalla',
+    description: 'Circuito de 4 alas envolventes que convergen en una gran plaza central, con pasillos anchos de más de 3 baldosas de hierba para torres pesadas.',
+    gridTurns: [
+      { col: 1, row: 14 },
+      // Entrada a Killzone Oeste
+      { col: 10, row: 14 },
+      { col: 10, row: 4 },
+      { col: 22, row: 4 },
+      { col: 22, row: 10 },
+      // Lóbulo Suroeste (separado 4+ filas del camino superior y del horizontal)
+      { col: 5, row: 10 },
+      { col: 5, row: 23 },
+      { col: 22, row: 23 },
+      // Cruce Killzone Central
+      { col: 22, row: 14 },
+      { col: 28, row: 14 },
+      // Lóbulo Noreste
+      { col: 28, row: 4 },
+      { col: 41, row: 4 },
+      { col: 41, row: 14 },
+      // Lóbulo Sureste
+      { col: 35, row: 14 },
+      { col: 35, row: 23 },
+      { col: 26, row: 23 },
+      { col: 26, row: 18 },
+      { col: 44, row: 18 }
+    ]
+  },
+  {
+    id: 'hourglass_crossroads',
+    name: 'El Reloj de Arena & Doble Garganta',
+    description: 'Dos grandes bahías este y oeste con un embudo central. Todos los pasillos interiores cuentan con un mínimo de 3 casillas de anchura para colocar torres.',
+    gridTurns: [
+      { col: 1, row: 4 },
+      { col: 15, row: 4 },
+      { col: 15, row: 9 },
+      { col: 4, row: 9 },
+      { col: 4, row: 23 },
+      { col: 19, row: 23 },
+      // Cuello de botella central Killzone
+      { col: 19, row: 14 },
+      { col: 27, row: 14 },
+      // Bahía Este
+      { col: 27, row: 4 },
+      { col: 41, row: 4 },
+      { col: 41, row: 9 },
+      { col: 32, row: 9 },
+      { col: 32, row: 23 },
+      // Retorno con separación de 5 casillas de fila (row 23 -> row 18)
+      { col: 23, row: 23 },
+      { col: 23, row: 18 },
+      { col: 44, row: 18 }
+    ]
+  },
+  {
+    id: 'triple_ring_colosseum',
+    name: 'El Coliseo del Triple Anillo',
+    description: 'Tres anillos concéntricos con corredores de 4 a 6 casillas de hierba de ancho entre cada vuelta, permitiendo poblar todo el perímetro de torres defensivas.',
+    gridTurns: [
+      { col: 1, row: 23 },
+      { col: 8, row: 23 },
+      { col: 8, row: 4 },
+      { col: 39, row: 4 },
+      { col: 39, row: 23 },
+      // Retorno con 5 columnas de separación (39 -> 34, 8 -> 13)
+      { col: 13, row: 23 },
+      { col: 13, row: 9 },
+      { col: 34, row: 9 },
+      { col: 34, row: 18 },
+      // Núcleo Killzone Central (row 18 -> row 14)
+      { col: 21, row: 18 },
+      { col: 21, row: 14 },
+      { col: 44, row: 14 }
+    ]
+  },
+  {
+    id: 'twin_helix_citadel',
+    name: 'La Doble Hélice & Nudo Sagrado',
+    description: 'Dos lazos simétricos en hélice con islas interiores garantizadas de 4x4 casillas donde caben holgadamente torres 3x3.',
+    gridTurns: [
+      { col: 1, row: 4 },
+      { col: 19, row: 4 },
+      { col: 19, row: 23 },
+      { col: 7, row: 23 },
+      { col: 7, row: 11 },
+      // Cruce Killzone
+      { col: 26, row: 11 },
+      { col: 26, row: 4 },
+      { col: 41, row: 4 },
+      { col: 41, row: 23 },
+      { col: 32, row: 23 },
+      { col: 32, row: 16 },
+      { col: 44, row: 16 }
+    ]
+  }
 ];
 
 // Pre-defined strategic placement spots

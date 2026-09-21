@@ -2,75 +2,38 @@ import * as THREE from 'three';
 import { Arena3D } from './arena-3d';
 import {
   TowerType,
+  BuildingType,
+  PlaceableType,
   TowerInstance,
+  BuildingInstance,
   TDEnemy,
   TDProjectile,
   EnemyType,
   TargetingMode,
   RuneConfig,
   GroundHazard,
-  ActiveSynergies
+  TechConfig
 } from './tower-defense-types';
 import {
   TOWER_CONFIGS,
+  BUILDING_CONFIGS,
+  TECH_CONFIGS,
   ENEMY_CONFIGS,
   TD_WAVES,
   RUNE_CATALOG
 } from './tower-defense-data';
 import { sounds } from './audio';
-
-interface TutorialStep {
-  title: string;
-  body: string;
-  targetSelector: string | null;
-  cardPlacement: 'center' | 'below' | 'above' | 'left';
-  avatar: string;
-}
-
-const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    title: '¡Bienvenida a Lunacia! 🏰',
-    body: '¡El <strong>Árbol Ancestral</strong> está en peligro! Las quimeras malignas saldrán por el portal morado y seguirán el camino de tierra para atacarlo.<br><br>¡Tu misión es defenderlo colocando a tus <strong>Axies defensores</strong> estratégicamente por el césped!',
-    targetSelector: null,
-    cardPlacement: 'center',
-    avatar: '🍅'
-  },
-  {
-    title: '⚡ Tu Energía Mágica: SLP',
-    body: 'Aquí arriba tienes tu <strong>SLP</strong> (Poción de Amor). Es el recurso mágico necesario para <strong>plantar y evolucionar</strong> a tus Axies.<br><br>Empiezas con <strong>250 SLP</strong> y ganas más cada vez que tus Axies eliminen a una quimera invasora.',
-    targetSelector: '.slp-pill',
-    cardPlacement: 'below',
-    avatar: '⚡'
-  },
-  {
-    title: '❤️ Vidas y Oleadas de Ataque',
-    body: 'Cuentas con <strong>20 vidas</strong>. Si una quimera consigue llegar al final del camino, perderás vidas.<br><br>Debes defenderte de las <strong>10 oleadas</strong> de dificultad creciente. ¡Si las resistes todas, habrás salvado Lunacia y ganado la partida!',
-    targetSelector: '.lives-pill',
-    cardPlacement: 'below',
-    avatar: '❤️'
-  },
-  {
-    title: '🐾 Invoca a tus Guerreros Axie',
-    body: 'En esta bandeja inferior eliges a tus 4 defensores:<br>• 🍅 <strong>Pomodoro</strong>: Fuego rápido de semillas y veneno.<br>• 🦊 <strong>Kotaro</strong>: Golpes críticos devastadores.<br>• 🌊 <strong>Bing</strong>: Burbujas de agua que mojan y ralentizan en área.<br>• 🪶 <strong>Tripp</strong>: Saetas divinas a gran distancia.<br><br>👉 <em>Haz clic en un Axie y luego haz clic en el césped para plantarlo. ¡Pulsa <strong>[ESC]</strong> o <strong>Clic Derecho</strong> si quieres cancelar!</em>',
-    targetSelector: '.bottom-tower-tray',
-    cardPlacement: 'above',
-    avatar: '🐾'
-  },
-  {
-    title: '☄️ Hechizo de Emergencia',
-    body: '¿Se te escapan muchas quimeras a la vez? Pulsa este botón para lanzar la <strong>Lluvia de Espinas</strong> ☄️ en cualquier parte del camino.<br><br>💡 <em>¡Además, puedes hacer clic sobre cualquier Axie colocado en el césped para <strong>subirlo de nivel</strong> y cambiar su prioridad de disparo!</em>',
-    targetSelector: '.spell-container',
-    cardPlacement: 'left',
-    avatar: '☄️'
-  },
-  {
-    title: '⚔️ ¡Todo Listo para la Batalla!',
-    body: 'Las oleadas saldrán automáticamente con una cuenta regresiva. Si colocaste tus Axies y estás lista antes de tiempo, pulsa <strong>\'Iniciar Oleada\'</strong> para ganar SLP extra de bonificación.<br><br>¡Mucha suerte, Comandante! ¡A defender Lunacia!',
-    targetSelector: '#start-wave-btn',
-    cardPlacement: 'below',
-    avatar: '🌟'
-  }
-];
+import {
+  initLanguage,
+  setLanguage,
+  getCurrentLanguage,
+  t,
+  translateDOM,
+  getTutorialSteps,
+  Language,
+  TutorialStepLocalized
+} from './i18n';
+import { axieNFTManager, AxieNFT, VisualMode } from './axie-nft';
 
 class TowerDefenseGame {
   private arena: Arena3D;
@@ -78,7 +41,7 @@ class TowerDefenseGame {
 
   // Core Game State
   private isGameStarted: boolean = false;
-  private lives: number = 20;
+  private lives: number = 10;
   private slp: number = 250; // Starting SLP for initial towers
   private currentWaveIndex: number = 0;
   private isWaveRunning: boolean = false;
@@ -97,17 +60,35 @@ class TowerDefenseGame {
   private isSpellAiming: boolean = false;
 
   // Selections & Card Cooldowns
-  private selectedBuildType: TowerType | null = null;
+  private selectedBuildType: PlaceableType | null = null;
   private inspectedTower: TowerInstance | null = null;
-  private cardCooldowns: Record<TowerType, number> = {
+  private inspectedBuilding: BuildingInstance | null = null;
+  private cardCooldowns: Record<string, number> = {
+    pomodoro: 0,
+    kotaro: 0,
+    bing: 0,
+    tripp: 0,
+    hemp_hut: 0,
+    hummer_hut: 0
+  };
+
+  // Technologies / Research System (Hummer Hut)
+  private unlockedTechs: Set<string> = new Set<string>();
+  // Nivel 3 tokens: cantidad de mejoras permitidas por tipo de torre (1 por cada investigación Lv3 completada en un taller)
+  private lv3Tokens: Record<TowerType, number> = {
     pomodoro: 0,
     kotaro: 0,
     bing: 0,
     tripp: 0
   };
 
+  // Population / Supply System (Warcraft 3 style)
+  private currentPopulation: number = 0;
+  private maxPopulation: number = 3; // Base cap
+
   // Entities
   private towers: TowerInstance[] = [];
+  private buildings: BuildingInstance[] = [];
   private enemies: TDEnemy[] = [];
   private projectiles: TDProjectile[] = [];
   private groundHazards: GroundHazard[] = [];
@@ -115,9 +96,8 @@ class TowerDefenseGame {
   private nextProjId: number = 1;
   private nextHazardId: number = 1;
 
-  // Roguelite Runes & Synergies State
+  // Roguelite Runes State
   private activeRunes: RuneConfig[] = [];
-  private activeSynergies: ActiveSynergies = { plantAqua: false, beastBird: false, fullLunacia: false };
   private isDraftingRune: boolean = false;
 
   // Wave Spawning Queue
@@ -134,13 +114,13 @@ class TowerDefenseGame {
   private livesDisplay = document.querySelector('#lives-display') as HTMLElement;
   private slpDisplay = document.querySelector('#slp-display') as HTMLElement;
   private slpPill = document.querySelector('.slp-pill') as HTMLElement;
+  private popDisplay = document.querySelector('#pop-display') as HTMLElement;
+  private popPill = document.querySelector('#pop-pill') as HTMLElement;
   private speedBtn = document.querySelector('#speed-btn') as HTMLElement;
   private musicBtn = document.querySelector('#music-btn') as HTMLElement;
   private startWaveBtn = document.querySelector('#start-wave-btn') as HTMLButtonElement;
   private spellBtn = document.querySelector('#spell-btn') as HTMLElement;
   private spellCooldownOverlay = document.querySelector('#spell-cooldown-overlay') as HTMLElement;
-  private synergyPill = document.querySelector('#synergy-pill') as HTMLElement;
-  private synergyLabel = document.querySelector('#synergy-label') as HTMLElement;
   private activeRunesContainer = document.querySelector('#active-runes-container') as HTMLElement;
   private toastEl = document.querySelector('#td-toast') as HTMLElement;
   private toastTimeout: number | null = null;
@@ -163,10 +143,39 @@ class TowerDefenseGame {
   private ultimateFill = document.querySelector('#ultimate-fill') as HTMLElement;
   private ultimateDesc = document.querySelector('#ultimate-desc') as HTMLElement;
 
+  private inspectorTargetingSection = document.querySelector('#inspector-targeting-section') as HTMLElement;
+  private inspectorResearchSection = document.querySelector('#inspector-research-section') as HTMLElement;
+  private researchTechList = document.querySelector('#research-tech-list') as HTMLElement;
+  private towerTechLockNotice = document.querySelector('#tower-tech-lock-notice') as HTMLElement;
+
   private runeModal = document.querySelector('#rune-modal') as HTMLElement;
   private runeOptionsRow = document.querySelector('#rune-options-row') as HTMLElement;
 
+  private tdUI = document.querySelector('#td-ui') as HTMLElement;
   private startScreen = document.querySelector('#start-screen') as HTMLElement;
+  private enterPortalBtn = document.querySelector('#enter-portal-btn') as HTMLElement;
+  private fadeBlackOverlay = document.querySelector('#fade-black-overlay') as HTMLElement;
+  private runeCurtainOverlay = document.querySelector('#rune-curtain-overlay') as HTMLElement;
+  private mainMenuHub = document.querySelector('#main-menu-hub') as HTMLElement;
+  private hubPlayBattleBtn = document.querySelector('#hub-play-battle-btn') as HTMLElement;
+  private hubBackToCoverBtn = document.querySelector('#hub-back-to-cover-btn') as HTMLElement;
+  private hubSettingsBtn = document.querySelector('#hub-settings-btn') as HTMLElement;
+  private hubRosterBtn = document.querySelector('#hub-roster-btn') as HTMLElement;
+  private hubCodexBtn = document.querySelector('#hub-codex-btn') as HTMLElement;
+  private hubTutorialBtn = document.querySelector('#hub-tutorial-btn') as HTMLElement;
+  private hubSystemBtn = document.querySelector('#hub-system-btn') as HTMLElement;
+  private isPortalTransitioning: boolean = false;
+  private transitionStyle: 'curtain' | 'fadeBlack' = 'curtain';
+
+  private codexModal = document.querySelector('#codex-modal') as HTMLElement;
+  private openCodexBtn = document.querySelector('#open-codex-btn') as HTMLElement;
+  private closeCodexBtn = document.querySelector('#close-codex-btn') as HTMLElement;
+  private closeCodexXBtn = document.querySelector('#close-codex-x-btn') as HTMLElement;
+  private guideModal = document.querySelector('#guide-modal') as HTMLElement;
+  private closeGuideXBtn = document.querySelector('#close-guide-x-btn') as HTMLElement;
+  private guideCloseBtn = document.querySelector('#guide-close-btn') as HTMLElement;
+  private guidePracticeBtn = document.querySelector('#guide-practice-btn') as HTMLElement;
+  private resultMenuBtn = document.querySelector('#result-menu-btn') as HTMLElement;
   private resultScreen = document.querySelector('#result-screen') as HTMLElement;
   private resultBadge = document.querySelector('#result-badge') as HTMLElement;
   private resultTitle = document.querySelector('#result-title') as HTMLElement;
@@ -187,15 +196,116 @@ class TowerDefenseGame {
   private tutorialPrevBtn = document.querySelector('#tutorial-prev-btn') as HTMLButtonElement;
   private tutorialNextBtn = document.querySelector('#tutorial-next-btn') as HTMLButtonElement;
   private tutorialSkipBtn = document.querySelector('#tutorial-skip-btn') as HTMLButtonElement;
+  private tutorialCloseBtn = document.querySelector('#tutorial-close-btn') as HTMLButtonElement;
   private currentTutorialStep: number = 0;
   private isTutorialActive: boolean = false;
+
+  // Surrender Elements
+  private surrenderHudBtn = document.querySelector('#surrender-hud-btn') as HTMLElement;
+  private surrenderModal = document.querySelector('#surrender-modal') as HTMLElement;
+  private confirmSurrenderBtn = document.querySelector('#confirm-surrender-btn') as HTMLElement;
+  private cancelSurrenderBtn = document.querySelector('#cancel-surrender-btn') as HTMLElement;
+
+  // Settings Modal Elements
+  private openSettingsBtn = document.querySelector('#open-settings-btn') as HTMLElement;
+  private settingsHudBtn = document.querySelector('#settings-hud-btn') as HTMLElement;
+  private settingsModal = document.querySelector('#settings-modal') as HTMLElement;
+  private closeSettingsBtn = document.querySelector('#close-settings-btn') as HTMLElement;
+  private closeSettingsXBtn = document.querySelector('#close-settings-x-btn') as HTMLElement;
+  private musicVolumeSlider = document.querySelector('#music-volume-slider') as HTMLInputElement;
+  private musicVolLabel = document.querySelector('#music-vol-label') as HTMLElement;
+  private toggleMusicSettingBtn = document.querySelector('#toggle-music-setting-btn') as HTMLElement;
+  private sfxVolumeSlider = document.querySelector('#sfx-volume-slider') as HTMLInputElement;
+  private sfxVolLabel = document.querySelector('#sfx-vol-label') as HTMLElement;
+  private toggleSfxSettingBtn = document.querySelector('#toggle-sfx-setting-btn') as HTMLElement;
+  private gfxHighBtn = document.querySelector('#gfx-high-btn') as HTMLElement;
+  private gfxEcoBtn = document.querySelector('#gfx-eco-btn') as HTMLElement;
+
+  // Axie Roster & Ronin NFT Elements
+  private rosterModal = document.querySelector('#roster-modal') as HTMLElement;
+  private openRosterHudBtn = document.querySelector('#open-roster-hud-btn') as HTMLElement;
+  private openRosterStartBtn = document.querySelector('#open-roster-start-btn') as HTMLElement;
+  private closeRosterXBtn = document.querySelector('#close-roster-x-btn') as HTMLElement;
+  private saveRosterBtn = document.querySelector('#save-roster-btn') as HTMLElement;
+  private connectRoninBtn = document.querySelector('#connect-ronin-btn') as HTMLElement;
+  private roninBtnText = document.querySelector('#ronin-btn-text') as HTMLElement;
+  private roninStatusLabel = document.querySelector('#ronin-status-label') as HTMLElement;
+  private refreshRoninBtn = document.querySelector('#refresh-ronin-btn') as HTMLElement;
+  private isRosterLoading = false;
+  private rosterLoadingText = '';
+  private axieIdInput = document.querySelector('#axie-id-input') as HTMLInputElement;
+  private addAxieBtn = document.querySelector('#add-axie-btn') as HTMLElement;
+  private loadDemoBtn = document.querySelector('#load-demo-btn') as HTMLElement;
+  private modeBillboardBtn = document.querySelector('#mode-billboard-btn') as HTMLElement;
+  private modeMascotBtn = document.querySelector('#mode-mascot-btn') as HTMLElement;
+  private resetLoadoutBtn = document.querySelector('#reset-loadout-btn') as HTMLElement;
+  private rosterCollectionGrid = document.querySelector('#roster-collection-grid') as HTMLElement;
+  private availableCountBadge = document.querySelector('#available-count-badge') as HTMLElement;
+  private rosterTabWallet = document.querySelector('#roster-tab-wallet') as HTMLElement;
+  private rosterTabDemo = document.querySelector('#roster-tab-demo') as HTMLElement;
+  private rosterTabAll = document.querySelector('#roster-tab-all') as HTMLElement;
+  private walletCountBadge = document.querySelector('#wallet-count-badge') as HTMLElement;
+  private demoCountBadge = document.querySelector('#demo-count-badge') as HTMLElement;
+  private rosterFilterInput = document.querySelector('#roster-filter-input') as HTMLInputElement;
+  private rosterLoadMoreBtn = document.querySelector('#roster-load-more-btn') as HTMLElement;
+  private loadMoreCount = document.querySelector('#load-more-count') as HTMLElement;
+  private activeRosterTab: 'wallet' | 'demo' | 'all' = 'all';
+  private activeRosterClass: string = 'all';
+  private rosterSearchQuery: string = '';
+
+  // Axie Detail & Inspection Modal Elements
+  private axieDetailModal = document.querySelector('#axie-detail-modal') as HTMLElement;
+  private closeAxieDetailBtn = document.querySelector('#close-axie-detail-btn') as HTMLElement;
+  private detailClassBadge = document.querySelector('#detail-class-badge') as HTMLElement;
+  private detailSpecialBadge = document.querySelector('#detail-special-badge') as HTMLElement;
+  private detailAxieImg = document.querySelector('#detail-axie-img') as HTMLImageElement;
+  private detailAxieName = document.querySelector('#detail-axie-name') as HTMLElement;
+  private detailAxieId = document.querySelector('#detail-axie-id') as HTMLElement;
+  private detailAxieSource = document.querySelector('#detail-axie-source') as HTMLElement;
+  private detailSynergyDesc = document.querySelector('#detail-synergy-desc') as HTMLElement;
+  private detailSpecialSynergy = document.querySelector('#detail-special-synergy') as HTMLElement;
+  private detailExplorerLink = document.querySelector('#detail-explorer-link') as HTMLAnchorElement;
+  private selectedDetailAxie: AxieNFT | null = null;
 
   constructor() {
     const canvasWrap = document.querySelector('#canvas-wrap') as HTMLElement;
     this.arena = new Arena3D(canvasWrap);
 
+    initLanguage();
+    translateDOM();
+
+    const savedTransition = localStorage.getItem('axie_transition_style');
+    if (savedTransition && ['curtain', 'fadeBlack'].includes(savedTransition)) {
+      this.transitionStyle = savedTransition as 'curtain' | 'fadeBlack';
+    } else {
+      this.transitionStyle = 'curtain';
+    }
+
     this.setupUIEvents();
+    this.syncSettingsUI();
+    this.initAxieRoster();
+    this.updateBottomDockCards();
     this.initPreload();
+
+    // Start title BGM on first user interaction (abiding by browser autoplay restrictions)
+    const initTitleAudio = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('#welcome-music-btn')) {
+        return;
+      }
+      if (!this.isGameStarted && sounds.getMusicVolume() > 0 && !sounds.isMusicRunning()) {
+        sounds.playTitleMusic(true);
+      }
+      window.removeEventListener('pointerdown', initTitleAudio);
+      window.removeEventListener('keydown', initTitleAudio);
+    };
+    window.addEventListener('pointerdown', initTitleAudio);
+    window.addEventListener('keydown', initTitleAudio);
+
+    // Also attempt immediate play if permissions allow
+    if (sounds.getMusicVolume() > 0) {
+      sounds.playTitleMusic(true);
+    }
 
     // Start 3D Game Loop
     this.arena.renderer.setAnimationLoop(() => this.loop());
@@ -209,33 +319,304 @@ class TowerDefenseGame {
       'tripp.glb',
       'xia.glb',
       'kibo.glb',
-      'paladill.glb'
+      'paladill.glb',
+      'sapidae-f-a.glb',
+      'sapidae-m-b.glb'
     ];
     await this.arena.preloadModels(models);
   }
 
   private setupUIEvents() {
-    // Start Welcome / Tutorial Buttons
-    const startTutorialBtn = document.querySelector('#start-tutorial-btn') as HTMLElement;
-    if (startTutorialBtn) {
-      startTutorialBtn.addEventListener('click', () => {
-        this.startTutorial();
+    // Language Switcher in Start Screen
+    document.querySelectorAll('.btn-lang').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lang = btn.getAttribute('data-lang') as Language;
+        if (lang) {
+          setLanguage(lang);
+          this.onLanguageChanged();
+          sounds.playGem();
+        }
+      });
+    });
+
+    // Surrender HUD Button & Confirmation Modal
+    if (this.surrenderHudBtn) {
+      this.surrenderHudBtn.addEventListener('click', () => {
+        if (!this.isGameStarted) return;
+        this.surrenderModal.classList.remove('hidden');
+        sounds.playGem();
       });
     }
 
-    const startPlayBtn = document.querySelector('#start-play-btn') as HTMLElement;
-    startPlayBtn.addEventListener('click', () => {
-      this.isGameStarted = true;
-      this.startScreen.classList.add('hidden');
-      localStorage.setItem('axie_td_tutorial_seen', 'true');
-      this.resetGame();
+    if (this.confirmSurrenderBtn) {
+      this.confirmSurrenderBtn.addEventListener('click', () => {
+        this.surrenderGame();
+      });
+    }
+
+    if (this.cancelSurrenderBtn) {
+      this.cancelSurrenderBtn.addEventListener('click', () => {
+        this.surrenderModal.classList.add('hidden');
+        sounds.playHit();
+      });
+    }
+
+    // Title Screen "ENTRAR A LUNACIA" & Click/Key Enter
+    if (this.enterPortalBtn) {
+      this.enterPortalBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.enterMainMenuHub();
+      });
+    }
+
+    if (this.startScreen) {
+      this.startScreen.addEventListener('click', () => {
+        if (!this.startScreen.classList.contains('hidden') && !this.isPortalTransitioning) {
+          this.enterMainMenuHub();
+        }
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (!this.startScreen.classList.contains('hidden') && !this.isPortalTransitioning) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault();
+          this.enterMainMenuHub();
+        }
+      }
     });
+
+    // Main Menu Hub Action Listeners
+    if (this.hubPlayBattleBtn) {
+      this.hubPlayBattleBtn.addEventListener('click', () => {
+        this.startGameFromHub();
+      });
+    }
+
+    if (this.hubBackToCoverBtn) {
+      this.hubBackToCoverBtn.addEventListener('click', () => {
+        this.backToTitleCover();
+      });
+    }
+
+    if (this.hubSettingsBtn) {
+      this.hubSettingsBtn.addEventListener('click', () => {
+        this.openSettings();
+      });
+    }
+
+    if (this.hubSystemBtn) {
+      this.hubSystemBtn.addEventListener('click', () => {
+        this.openSettings();
+      });
+    }
+
+    if (this.hubRosterBtn) {
+      this.hubRosterBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Disabled for v1.1 release
+      });
+    }
+
+    if (this.hubCodexBtn) {
+      this.hubCodexBtn.addEventListener('click', () => {
+        this.openCodex();
+      });
+    }
+
+    if (this.hubTutorialBtn) {
+      this.hubTutorialBtn.addEventListener('click', () => {
+        this.openGuideModal();
+      });
+    }
+
+    // Settings Modal Open / Close & Controls
+    if (this.openSettingsBtn) {
+      this.openSettingsBtn.addEventListener('click', () => {
+        this.openSettings();
+      });
+    }
+
+    if (this.settingsHudBtn) {
+      this.settingsHudBtn.addEventListener('click', () => {
+        this.openSettings();
+      });
+    }
+
+    if (this.closeSettingsBtn) {
+      this.closeSettingsBtn.addEventListener('click', () => {
+        this.closeSettings();
+      });
+    }
+
+    if (this.closeSettingsXBtn) {
+      this.closeSettingsXBtn.addEventListener('click', () => {
+        this.closeSettings();
+      });
+    }
+
+    if (this.musicVolumeSlider) {
+      this.musicVolumeSlider.addEventListener('input', () => {
+        const val = parseInt(this.musicVolumeSlider.value, 10);
+        this.updateMusicVolumeUI(val);
+        sounds.setMusicVolume(val / 100);
+        if (val > 0 && !sounds.isMusicRunning()) {
+          sounds.startMusic();
+        }
+      });
+    }
+
+    if (this.toggleMusicSettingBtn) {
+      this.toggleMusicSettingBtn.addEventListener('click', () => {
+        const currentVol = sounds.getMusicVolume();
+        if (currentVol > 0) {
+          sounds.setMusicVolume(0);
+          this.updateMusicVolumeUI(0);
+          if (this.musicVolumeSlider) this.musicVolumeSlider.value = '0';
+        } else {
+          sounds.setMusicVolume(0.7);
+          this.updateMusicVolumeUI(70);
+          if (this.musicVolumeSlider) this.musicVolumeSlider.value = '70';
+          if (!sounds.isMusicRunning()) sounds.startMusic();
+        }
+        sounds.playGem();
+      });
+    }
+
+    if (this.sfxVolumeSlider) {
+      this.sfxVolumeSlider.addEventListener('input', () => {
+        const val = parseInt(this.sfxVolumeSlider.value, 10);
+        this.updateSfxVolumeUI(val);
+        sounds.setSfxVolume(val / 100);
+      });
+    }
+
+    if (this.toggleSfxSettingBtn) {
+      this.toggleSfxSettingBtn.addEventListener('click', () => {
+        const currentVol = sounds.getSfxVolume();
+        if (currentVol > 0) {
+          sounds.setSfxVolume(0);
+          this.updateSfxVolumeUI(0);
+          if (this.sfxVolumeSlider) this.sfxVolumeSlider.value = '0';
+        } else {
+          sounds.setSfxVolume(0.8);
+          this.updateSfxVolumeUI(80);
+          if (this.sfxVolumeSlider) this.sfxVolumeSlider.value = '80';
+          sounds.playGem();
+        }
+      });
+    }
+
+    if (this.gfxHighBtn) {
+      this.gfxHighBtn.addEventListener('click', () => {
+        this.setGraphicsQuality('high');
+        sounds.playGem();
+      });
+    }
+
+    if (this.gfxEcoBtn) {
+      this.gfxEcoBtn.addEventListener('click', () => {
+        this.setGraphicsQuality('eco');
+        sounds.playGem();
+      });
+    }
+
+
+    // Codex Open/Close & Tab Switching
+    if (this.openCodexBtn) {
+      this.openCodexBtn.addEventListener('click', () => {
+        this.openCodex();
+      });
+    }
+
+    if (this.closeCodexBtn) {
+      this.closeCodexBtn.addEventListener('click', () => {
+        this.closeCodex();
+      });
+    }
+
+    if (this.closeCodexXBtn) {
+      this.closeCodexXBtn.addEventListener('click', () => {
+        this.closeCodex();
+      });
+    }
+
+    // Tutorial Close Button
+    if (this.tutorialCloseBtn) {
+      this.tutorialCloseBtn.addEventListener('click', () => {
+        this.closeTutorial();
+      });
+    }
+
+    // Close Modals on backdrop click
+    if (this.settingsModal) {
+      this.settingsModal.addEventListener('click', (e) => {
+        if (e.target === this.settingsModal) {
+          this.closeSettings();
+        }
+      });
+    }
+
+    if (this.codexModal) {
+      this.codexModal.addEventListener('click', (e) => {
+        if (e.target === this.codexModal) {
+          this.closeCodex();
+        }
+      });
+    }
+
+    // Guide Modal Listeners
+    if (this.closeGuideXBtn) {
+      this.closeGuideXBtn.addEventListener('click', () => {
+        this.closeGuideModal();
+      });
+    }
+    if (this.guideCloseBtn) {
+      this.guideCloseBtn.addEventListener('click', () => {
+        this.closeGuideModal();
+      });
+    }
+    if (this.guidePracticeBtn) {
+      this.guidePracticeBtn.addEventListener('click', () => {
+        this.closeGuideModal();
+        this.startTutorial();
+      });
+    }
+    if (this.guideModal) {
+      this.guideModal.addEventListener('click', (e) => {
+        if (e.target === this.guideModal) {
+          this.closeGuideModal();
+        }
+      });
+    }
+
+    document.querySelectorAll('.btn-codex-tab').forEach(tabBtn => {
+      tabBtn.addEventListener('click', () => {
+        const tab = tabBtn.getAttribute('data-tab');
+        this.switchCodexTab(tab);
+      });
+    });
+
+    document.querySelectorAll('.btn-guide-tab').forEach(tabBtn => {
+      tabBtn.addEventListener('click', () => {
+        const tab = tabBtn.getAttribute('data-tab');
+        if (tab) this.switchGuideTab(tab);
+      });
+    });
+
+    // Result Screen Return to Main Menu
+    if (this.resultMenuBtn) {
+      this.resultMenuBtn.addEventListener('click', () => {
+        this.returnToMainMenu();
+      });
+    }
 
     // Top HUD Tutorial Replay Button
     const tutorialHudBtn = document.querySelector('#tutorial-hud-btn') as HTMLElement;
     if (tutorialHudBtn) {
       tutorialHudBtn.addEventListener('click', () => {
-        this.startTutorial();
+        this.openGuideModal();
       });
     }
 
@@ -255,6 +636,9 @@ class TowerDefenseGame {
     restartBtn.addEventListener('click', () => {
       this.resultScreen.classList.add('hidden');
       this.resetGame();
+      if (sounds.getMusicVolume() > 0) {
+        sounds.playBattleMusic();
+      }
     });
 
     // Speed Toggle Button
@@ -264,7 +648,7 @@ class TowerDefenseGame {
       sounds.playGem();
     });
 
-    // Music Toggle Button
+    // Music Toggle Button in HUD
     if (this.musicBtn) {
       this.musicBtn.addEventListener('click', () => {
         const isPlaying = sounds.toggleMusic();
@@ -287,20 +671,34 @@ class TowerDefenseGame {
       sounds.playShoot();
       if (this.isSpellAiming) {
         this.deselectBuildType();
-        this.showToast('☄️ Haz clic en el sendero para lanzar la Lluvia de Espinas. [ESC] para cancelar.');
+        this.showToast(t('toastSpellAim'));
       }
     });
 
-    // Bottom Tower Cards Click (Select Tower Type to place)
+    // Bottom Tower & Building Cards Click (Select Tower or Building to place)
     const towerCards = document.querySelectorAll('.tower-card');
     towerCards.forEach(card => {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
-        const type = card.getAttribute('data-tower') as TowerType;
+        const towerType = card.getAttribute('data-tower') as TowerType | null;
+        const buildingType = card.getAttribute('data-building') as BuildingType | null;
+        const type: PlaceableType = (towerType || buildingType)!;
+
+        const isBuilding = !!buildingType;
+        const name = isBuilding ? BUILDING_CONFIGS[buildingType].name : TOWER_CONFIGS[towerType!].name;
+        const cost = isBuilding ? BUILDING_CONFIGS[buildingType].cost : TOWER_CONFIGS[towerType!].cost;
 
         if (this.cardCooldowns[type] > 0) {
           sounds.playError();
-          this.showToast(`⏳ ${TOWER_CONFIGS[type].name} aún está en enfriamiento (${Math.ceil(this.cardCooldowns[type])}s).`, 'error');
+          this.showToast(t('toastTowerCooldown', { name, sec: Math.ceil(this.cardCooldowns[type]) }), 'error');
+          return;
+        }
+
+        // Population constraint check if selecting a tower
+        if (!isBuilding && this.currentPopulation >= this.maxPopulation) {
+          sounds.playError();
+          this.showToast(t('toastPopLimit', { cur: this.currentPopulation, max: this.maxPopulation }), 'error');
+          this.triggerPopError();
           return;
         }
 
@@ -313,8 +711,8 @@ class TowerDefenseGame {
           this.selectedBuildType = type;
           card.classList.add('selected');
           sounds.playHit();
-          if (this.slp < TOWER_CONFIGS[type].cost) {
-            this.triggerSlpError(TOWER_CONFIGS[type].cost, TOWER_CONFIGS[type].name);
+          if (this.slp < cost) {
+            this.triggerSlpError(cost, name);
           }
         }
 
@@ -340,11 +738,63 @@ class TowerDefenseGame {
       });
     });
 
-    // Keyboard ESC shortcut to cancel tower placement, tutorial or close inspector
+    // Keyboard shortcuts for tutorial, modal navigation, overlays, and inspector
     window.addEventListener('keydown', (e) => {
+      // Interactive Guided Tutorial keyboard navigation
+      if (this.isTutorialActive) {
+        if (e.key === 'ArrowRight' || e.key === 'Enter') {
+          e.preventDefault();
+          this.nextTutorialStep();
+          return;
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          this.prevTutorialStep();
+          return;
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeTutorial();
+          return;
+        }
+      }
+
+      // Tactical Guide Modal arrow navigation between tabs
+      if (this.guideModal && !this.guideModal.classList.contains('hidden')) {
+        const tabs = ['basics', 'buildings', 'defenders', 'tactics'];
+        const activeTabBtn = document.querySelector('.btn-guide-tab.active');
+        const currentTab = activeTabBtn ? activeTabBtn.getAttribute('data-tab') : 'basics';
+        const currentIndex = tabs.indexOf(currentTab || 'basics');
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const nextTab = tabs[(currentIndex + 1) % tabs.length];
+          this.switchGuideTab(nextTab);
+          return;
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const prevTab = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+          this.switchGuideTab(prevTab);
+          return;
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.closeGuideModal();
+          return;
+        }
+      }
+
       if (e.key === 'Escape') {
-        if (this.isTutorialActive) {
-          this.finishTutorial();
+        if (this.axieDetailModal && !this.axieDetailModal.classList.contains('hidden')) {
+          this.closeAxieDetailModal();
+          return;
+        }
+        if (this.rosterModal && !this.rosterModal.classList.contains('hidden')) {
+          this.closeRosterModal();
+          return;
+        }
+        if (this.settingsModal && !this.settingsModal.classList.contains('hidden')) {
+          this.closeSettings();
+          return;
+        }
+        if (this.codexModal && !this.codexModal.classList.contains('hidden')) {
+          this.closeCodex();
           return;
         }
         if (this.selectedBuildType || this.isSpellAiming) {
@@ -390,43 +840,965 @@ class TowerDefenseGame {
     });
   }
 
+  private enterMainMenuHub() {
+    if (this.isPortalTransitioning) return;
+    this.isPortalTransitioning = true;
+    sounds.playGem();
+
+    if (this.transitionStyle === 'curtain') {
+      // OPTION: Ancestral Lunacia Vault Gates with Royal Seal Lock & Light Burst
+      const curtainDoors = document.querySelectorAll('.curtain-door');
+      const centralSeal = document.querySelector('#curtain-central-seal') as HTMLElement | null;
+      const lightShaft = document.querySelector('.curtain-light-shaft') as HTMLElement | null;
+      const impactFlare = document.querySelector('.curtain-seam-impact') as HTMLElement | null;
+
+      if (this.runeCurtainOverlay) {
+        this.runeCurtainOverlay.classList.remove('hidden');
+        this.runeCurtainOverlay.classList.add('active');
+        curtainDoors.forEach(d => d.classList.remove('closing', 'opening'));
+        if (centralSeal) centralSeal.classList.remove('seal-locked', 'seal-unlocking');
+        if (lightShaft) lightShaft.classList.remove('flood');
+        if (impactFlare) impactFlare.classList.remove('impact-active');
+        void this.runeCurtainOverlay.offsetWidth;
+      }
+
+      // 1. Gates slide smoothly into view from both sides (620ms)
+      requestAnimationFrame(() => {
+        curtainDoors.forEach(d => d.classList.add('closing'));
+      });
+
+      // 2. Lock & Impact moment at 580ms: gates meet, royal seal locks on, seam flashes
+      setTimeout(() => {
+        if (centralSeal) centralSeal.classList.add('seal-locked');
+        if (impactFlare) impactFlare.classList.add('impact-active');
+        sounds.playHit();
+
+        // Switch screens cleanly behind the locked vault gates
+        if (this.startScreen) this.startScreen.classList.add('hidden');
+        if (this.mainMenuHub) this.mainMenuHub.classList.remove('hidden');
+        this.arena.setTitleCamera();
+        if (sounds.getMusicVolume() > 0) {
+          sounds.playTitleMusic(false);
+        }
+
+        // 3. At 1050ms: Seal unlocks with radiant burst, light floods in, gates part open
+        setTimeout(() => {
+          if (centralSeal) {
+            centralSeal.classList.remove('seal-locked');
+            centralSeal.classList.add('seal-unlocking');
+          }
+          if (lightShaft) {
+            lightShaft.classList.add('flood');
+          }
+          curtainDoors.forEach(d => {
+            d.classList.remove('closing');
+            d.classList.add('opening');
+          });
+          sounds.playGem();
+
+          // 4. Finish transition after gates fully retract and light settles (700ms)
+          setTimeout(() => {
+            if (this.runeCurtainOverlay) {
+              this.runeCurtainOverlay.classList.remove('active');
+              this.runeCurtainOverlay.classList.add('hidden');
+            }
+            curtainDoors.forEach(d => d.classList.remove('opening'));
+            if (centralSeal) centralSeal.classList.remove('seal-unlocking');
+            if (lightShaft) lightShaft.classList.remove('flood');
+            if (impactFlare) impactFlare.classList.remove('impact-active');
+            this.isPortalTransitioning = false;
+          }, 700);
+        }, 470);
+      }, 580);
+    } else {
+      // OPTION: Fade to Black (Cinematic Clean)
+      if (this.fadeBlackOverlay) {
+        this.fadeBlackOverlay.classList.remove('hidden');
+        void this.fadeBlackOverlay.offsetWidth;
+        this.fadeBlackOverlay.classList.add('active');
+      }
+
+      setTimeout(() => {
+        if (this.startScreen) this.startScreen.classList.add('hidden');
+        if (this.mainMenuHub) this.mainMenuHub.classList.remove('hidden');
+        this.arena.setTitleCamera();
+        if (sounds.getMusicVolume() > 0) {
+          sounds.playTitleMusic(false);
+        }
+
+        setTimeout(() => {
+          if (this.fadeBlackOverlay) {
+            this.fadeBlackOverlay.classList.remove('active');
+          }
+          setTimeout(() => {
+            if (this.fadeBlackOverlay) this.fadeBlackOverlay.classList.add('hidden');
+            this.isPortalTransitioning = false;
+          }, 380);
+        }, 100);
+      }, 400);
+    }
+  }
+
+  private backToTitleCover() {
+    if (this.mainMenuHub) this.mainMenuHub.classList.add('hidden');
+    if (this.startScreen) {
+      this.startScreen.classList.remove('hidden');
+    }
+    this.arena.setTitleCamera();
+    sounds.playGem();
+  }
+
+  private startGameFromHub() {
+    this.isGameStarted = true;
+    if (this.mainMenuHub) this.mainMenuHub.classList.add('hidden');
+    if (this.startScreen) this.startScreen.classList.add('hidden');
+    if (this.settingsModal) this.settingsModal.classList.add('hidden');
+    this.tdUI.classList.remove('hidden');
+    this.arena.setGameCamera(true);
+    localStorage.setItem('axie_td_tutorial_seen', 'true');
+    this.resetGame();
+    sounds.playGem();
+    if (sounds.getMusicVolume() > 0) {
+      sounds.playBattleMusic(true);
+    }
+  }
+
+  private returnToMainMenu() {
+    this.isGameStarted = false;
+    this.isWaveRunning = false;
+    this.isIntermission = false;
+    this.resultScreen.classList.add('hidden');
+    this.surrenderModal.classList.add('hidden');
+    this.runeModal.classList.add('hidden');
+    if (this.settingsModal) this.settingsModal.classList.add('hidden');
+    this.closeInspector();
+    this.deselectBuildType();
+    if (this.isTutorialActive) {
+      this.isTutorialActive = false;
+      this.tutorialOverlay.classList.add('hidden');
+    }
+    this.tdUI.classList.add('hidden');
+    if (this.startScreen) this.startScreen.classList.add('hidden');
+    if (this.mainMenuHub) this.mainMenuHub.classList.remove('hidden');
+    this.arena.setTitleCamera();
+    this.resetGame();
+    this.updateHUD();
+    sounds.playGem();
+    if (sounds.getMusicVolume() > 0) {
+      sounds.playTitleMusic(true);
+    }
+  }
+
+  private openSettings() {
+    if (!this.settingsModal) return;
+    this.syncSettingsUI();
+    this.settingsModal.classList.remove('hidden');
+    sounds.playGem();
+  }
+
+  private closeSettings() {
+    if (!this.settingsModal) return;
+    this.settingsModal.classList.add('hidden');
+    sounds.playHit();
+  }
+
+  private syncSettingsUI() {
+    const musicVol = Math.round(sounds.getMusicVolume() * 100);
+    const sfxVol = Math.round(sounds.getSfxVolume() * 100);
+
+    if (this.musicVolumeSlider) this.musicVolumeSlider.value = musicVol.toString();
+    this.updateMusicVolumeUI(musicVol);
+
+    if (this.sfxVolumeSlider) this.sfxVolumeSlider.value = sfxVol.toString();
+    this.updateSfxVolumeUI(sfxVol);
+
+    const gfxQuality = (localStorage.getItem('axie_gfx_quality') as 'high' | 'eco') || 'high';
+    this.updateGfxButtonsUI(gfxQuality);
+  }
+
+  private updateMusicVolumeUI(val: number) {
+    if (this.musicVolLabel) this.musicVolLabel.textContent = `${val}%`;
+    if (this.toggleMusicSettingBtn) {
+      const isActive = val > 0;
+      this.toggleMusicSettingBtn.classList.toggle('active', isActive);
+      this.toggleMusicSettingBtn.textContent = isActive ? 'ON' : 'OFF';
+    }
+  }
+
+  private updateSfxVolumeUI(val: number) {
+    if (this.sfxVolLabel) this.sfxVolLabel.textContent = `${val}%`;
+    if (this.toggleSfxSettingBtn) {
+      const isActive = val > 0;
+      this.toggleSfxSettingBtn.classList.toggle('active', isActive);
+      this.toggleSfxSettingBtn.textContent = isActive ? 'ON' : 'OFF';
+    }
+  }
+
+  private setGraphicsQuality(mode: 'high' | 'eco') {
+    localStorage.setItem('axie_gfx_quality', mode);
+    this.arena.setGraphicsQuality(mode);
+    this.updateGfxButtonsUI(mode);
+  }
+
+  private updateGfxButtonsUI(mode: 'high' | 'eco') {
+    if (this.gfxHighBtn) this.gfxHighBtn.classList.toggle('active', mode === 'high');
+    if (this.gfxEcoBtn) this.gfxEcoBtn.classList.toggle('active', mode === 'eco');
+  }
+
+  private openCodex() {
+    if (this.codexModal) {
+      this.codexModal.classList.remove('hidden');
+      this.switchCodexTab('defenders');
+      sounds.playGem();
+    }
+  }
+
+  private closeCodex() {
+    if (this.codexModal) {
+      this.codexModal.classList.add('hidden');
+      sounds.playHit();
+    }
+  }
+
+  private switchCodexTab(tabName: string | null) {
+    if (!tabName) return;
+    document.querySelectorAll('.btn-codex-tab').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-tab') === tabName);
+    });
+    document.querySelectorAll('.codex-tab-pane').forEach(p => {
+      p.classList.add('hidden');
+    });
+    const targetPane = document.querySelector(`#codex-tab-${tabName}`);
+    if (targetPane) {
+      targetPane.classList.remove('hidden');
+    }
+    sounds.playHit();
+  }
+
+  private switchGuideTab(tabName: string) {
+    document.querySelectorAll('.btn-guide-tab').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-tab') === tabName);
+    });
+    document.querySelectorAll('.guide-tab-panel').forEach(panel => {
+      panel.classList.add('hidden');
+    });
+    const targetPane = document.querySelector(`#guide-tab-${tabName}`);
+    if (targetPane) {
+      targetPane.classList.remove('hidden');
+    }
+    sounds.playHit();
+  }
+
+  private openGuideModal() {
+    if (this.guideModal) {
+      this.switchGuideTab('basics');
+      this.guideModal.classList.remove('hidden');
+      sounds.playGem();
+    }
+  }
+
+  private closeGuideModal() {
+    if (this.guideModal) {
+      this.guideModal.classList.add('hidden');
+      sounds.playHit();
+    }
+  }
+
+  private isAnyModalOpen(): boolean {
+    return !!(
+      (this.settingsModal && !this.settingsModal.classList.contains('hidden')) ||
+      (this.codexModal && !this.codexModal.classList.contains('hidden')) ||
+      (this.guideModal && !this.guideModal.classList.contains('hidden')) ||
+      (this.rosterModal && !this.rosterModal.classList.contains('hidden')) ||
+      (this.axieDetailModal && !this.axieDetailModal.classList.contains('hidden')) ||
+      (this.surrenderModal && !this.surrenderModal.classList.contains('hidden'))
+    );
+  }
+
+  // --- Axie Roster & Ronin Loadout System ---
+  private initAxieRoster() {
+    if (this.openRosterStartBtn) {
+      this.openRosterStartBtn.addEventListener('click', () => this.openRosterModal());
+    }
+    if (this.openRosterHudBtn) {
+      this.openRosterHudBtn.addEventListener('click', () => this.openRosterModal());
+    }
+
+    if (this.closeRosterXBtn) {
+      this.closeRosterXBtn.addEventListener('click', () => this.closeRosterModal());
+    }
+    if (this.saveRosterBtn) {
+      this.saveRosterBtn.addEventListener('click', () => {
+        sounds.playLevelUp();
+        this.showToast('¡Equipo defensor guardado con éxito!', 'info');
+        this.closeRosterModal();
+      });
+    }
+
+    if (this.rosterModal) {
+      this.rosterModal.addEventListener('click', (e) => {
+        if (e.target === this.rosterModal) {
+          this.closeRosterModal();
+        }
+      });
+    }
+
+    if (this.connectRoninBtn) {
+      this.connectRoninBtn.addEventListener('click', async () => {
+        const loadout = axieNFTManager.getLoadout();
+        if (loadout.roninAddress) {
+          axieNFTManager.disconnectRonin();
+          sounds.playHit();
+          this.showToast('Billetera Ronin desconectada', 'info');
+          this.setRosterTab('all');
+          this.renderRosterUI();
+        } else {
+          try {
+            sounds.playHit();
+            if (this.roninBtnText) this.roninBtnText.textContent = '⏳ Conectando...';
+            this.setRosterLoading(true, 'Conectando con Ronin Wallet...');
+            const res = await axieNFTManager.connectRonin();
+            sounds.playLevelUp();
+            if (res.axieCount > 0) {
+              this.showToast(`¡Ronin conectado! Se sincronizaron ${res.axieCount} Axies on-chain. 🦊`, 'info');
+              this.setRosterTab('wallet');
+            } else {
+              const short = `${res.address.slice(0, 10)}...`;
+              this.showToast(`¡Ronin conectado (${short})! No se encontraron Axies NFT en esta dirección. Puedes introducir Axie IDs o usar el equipo Demo.`, 'info');
+            }
+          } catch (err: any) {
+            sounds.playError();
+            this.showToast(err.message || 'No se detectó Ronin Wallet. Puedes escribir tu dirección o cargar por ID.', 'error');
+          } finally {
+            this.setRosterLoading(false);
+            this.renderRosterUI();
+          }
+        }
+      });
+    }
+
+    if (this.refreshRoninBtn) {
+      this.refreshRoninBtn.addEventListener('click', async () => {
+        try {
+          sounds.playHit();
+          this.setRosterLoading(true, 'Actualizando Axies on-chain...');
+          const axies = await axieNFTManager.refreshWalletAxies();
+          sounds.playLevelUp();
+          if (axies.length > 0) {
+            this.showToast(`¡Billetera sincronizada! ${axies.length} Axies encontrados. 🦊`, 'info');
+            this.setRosterTab('wallet');
+          } else {
+            this.showToast('Billetera sincronizada. No se encontraron Axies NFT.', 'info');
+          }
+        } catch (err: any) {
+          sounds.playError();
+          this.showToast(err.message || 'Error al sincronizar con Ronin', 'error');
+        } finally {
+          this.setRosterLoading(false);
+          this.renderRosterUI();
+        }
+      });
+    }
+
+    if (this.addAxieBtn && this.axieIdInput) {
+      const handleAdd = async () => {
+        const val = this.axieIdInput.value.trim();
+        if (!val) return;
+        try {
+          this.addAxieBtn.textContent = '⏳...';
+          this.setRosterLoading(true, 'Consultando en la blockchain Ronin...');
+          const res = await axieNFTManager.addAxieByIdOrAddress(val);
+          this.axieIdInput.value = '';
+          sounds.playLevelUp();
+          if (Array.isArray(res)) {
+            if (res.length > 0) {
+              this.showToast(`¡Se cargaron ${res.length} Axies on-chain de la billetera! 🦊`, 'info');
+              this.setRosterTab('wallet');
+            } else {
+              this.showToast('Billetera conectada, pero no tiene Axies NFT. Prueba cargar por ID individual.', 'info');
+            }
+          } else {
+            this.showToast(`¡Axie #${res.id} (${res.class}) sincronizado desde la blockchain!`, 'info');
+          }
+        } catch (e: any) {
+          sounds.playError();
+          this.showToast(e.message || 'Error al consultar el Axie o billetera en Ronin', 'error');
+        } finally {
+          this.addAxieBtn.textContent = '🔍 Cargar';
+          this.setRosterLoading(false);
+          this.renderRosterUI();
+        }
+      };
+
+      this.addAxieBtn.addEventListener('click', handleAdd);
+      this.axieIdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleAdd();
+      });
+    }
+
+    if (this.loadDemoBtn) {
+      this.loadDemoBtn.addEventListener('click', () => {
+        axieNFTManager.loadDemoTeam();
+        sounds.playLevelUp();
+        this.showToast('¡Equipo Demo de Axies cargado con éxito!', 'info');
+        this.setRosterTab('demo');
+        this.renderRosterUI();
+        this.updateBottomDockCards();
+      });
+    }
+
+    if (this.modeBillboardBtn && this.modeMascotBtn) {
+      this.modeBillboardBtn.addEventListener('click', () => {
+        axieNFTManager.setVisualMode('billboard_25d');
+        sounds.playHit();
+        this.renderRosterUI();
+      });
+      this.modeMascotBtn.addEventListener('click', () => {
+        axieNFTManager.setVisualMode('mascot_3d');
+        sounds.playHit();
+        this.renderRosterUI();
+      });
+    }
+
+    if (this.resetLoadoutBtn) {
+      this.resetLoadoutBtn.addEventListener('click', () => {
+        axieNFTManager.resetToDefaults();
+        sounds.playHit();
+        this.showToast('Defensores restaurados a los Starters originales', 'info');
+        this.renderRosterUI();
+        this.updateBottomDockCards();
+      });
+    }
+
+    // Source Tabs (Wallet vs Demo vs All)
+    if (this.rosterTabWallet) {
+      this.rosterTabWallet.addEventListener('click', () => this.setRosterTab('wallet'));
+    }
+    if (this.rosterTabDemo) {
+      this.rosterTabDemo.addEventListener('click', () => this.setRosterTab('demo'));
+    }
+    if (this.rosterTabAll) {
+      this.rosterTabAll.addEventListener('click', () => this.setRosterTab('all'));
+    }
+
+    // Class Filter Chips
+    const chips = document.querySelectorAll('.roster-chip');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        this.activeRosterClass = chip.getAttribute('data-class') || 'all';
+        sounds.playHit();
+        this.renderRosterUI();
+      });
+    });
+
+    // Search input
+    if (this.rosterFilterInput) {
+      this.rosterFilterInput.addEventListener('input', () => {
+        this.rosterSearchQuery = this.rosterFilterInput.value.trim().toLowerCase();
+        this.renderRosterUI();
+      });
+    }
+
+    // Load More Button
+    if (this.rosterLoadMoreBtn) {
+      this.rosterLoadMoreBtn.addEventListener('click', async () => {
+        try {
+          this.rosterLoadMoreBtn.setAttribute('disabled', 'true');
+          const originalText = this.rosterLoadMoreBtn.innerHTML;
+          this.rosterLoadMoreBtn.innerHTML = '⏳ Sincronizando más Axies on-chain...';
+          const more = await axieNFTManager.fetchMoreWalletAxies(40);
+          sounds.playLevelUp();
+          this.showToast(`¡Se cargaron ${more.length} Axies más de tu billetera! 🦊`, 'info');
+        } catch (e: any) {
+          sounds.playError();
+          this.showToast(e.message || 'Error al cargar más Axies', 'error');
+        } finally {
+          this.rosterLoadMoreBtn.removeAttribute('disabled');
+          this.renderRosterUI();
+        }
+      });
+    }
+
+    // Loadout slot cards interaction
+    document.querySelectorAll('.loadout-slot-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.btn-clear-slot')) return;
+        const slot = card.getAttribute('data-slot') as TowerType;
+        if (!slot) return;
+
+        const currentCustom = axieNFTManager.getAxieForTowerType(slot);
+        if (currentCustom) {
+          // Inspect the currently equipped Axie
+          this.openAxieDetailModal(currentCustom);
+        } else {
+          // Filter the roster to match this slot's affinity class
+          const targetClass = slot === 'pomodoro' ? 'Plant' :
+                              slot === 'kotaro' ? 'Beast' :
+                              slot === 'bing' ? 'Aqua' : 'Bird';
+          this.activeRosterClass = targetClass;
+          document.querySelectorAll('.roster-chip').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-class') === targetClass);
+          });
+          document.querySelectorAll('.loadout-slot-card').forEach(c => c.classList.remove('slot-active-filter'));
+          card.classList.add('slot-active-filter');
+          sounds.playHit();
+          this.renderRosterUI();
+        }
+      });
+    });
+
+    // Clear slot buttons
+    document.querySelectorAll('.btn-clear-slot').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const slot = btn.getAttribute('data-slot') as TowerType;
+        if (slot) {
+          axieNFTManager.clearSlot(slot);
+          sounds.playHit();
+          this.renderRosterUI();
+          this.updateBottomDockCards();
+        }
+      });
+    });
+
+    // Axie Detail Modal buttons
+    if (this.closeAxieDetailBtn) {
+      this.closeAxieDetailBtn.addEventListener('click', () => this.closeAxieDetailModal());
+    }
+    if (this.axieDetailModal) {
+      this.axieDetailModal.addEventListener('click', (e) => {
+        if (e.target === this.axieDetailModal) {
+          this.closeAxieDetailModal();
+        }
+      });
+    }
+
+    document.querySelectorAll('.btn-detail-slot').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!this.selectedDetailAxie) return;
+        const slot = btn.getAttribute('data-slot') as TowerType;
+        if (slot) {
+          axieNFTManager.assignAxieToSlot(slot, this.selectedDetailAxie);
+          sounds.playLevelUp();
+          this.showToast(`¡${this.selectedDetailAxie.name} (#${this.selectedDetailAxie.id}) asignado al Slot de ${TOWER_CONFIGS[slot].classLabel}!`, 'info');
+          this.closeAxieDetailModal();
+          this.renderRosterUI();
+          this.updateBottomDockCards();
+        }
+      });
+    });
+
+    axieNFTManager.subscribe(() => {
+      this.renderRosterUI();
+      this.updateBottomDockCards();
+    });
+  }
+
+  private setRosterTab(tab: 'wallet' | 'demo' | 'all') {
+    this.activeRosterTab = tab;
+    if (this.rosterTabWallet) this.rosterTabWallet.classList.toggle('active', tab === 'wallet');
+    if (this.rosterTabDemo) this.rosterTabDemo.classList.toggle('active', tab === 'demo');
+    if (this.rosterTabAll) this.rosterTabAll.classList.toggle('active', tab === 'all');
+    sounds.playHit();
+    this.renderRosterUI();
+  }
+
+  private openAxieDetailModal(axie: AxieNFT) {
+    this.selectedDetailAxie = axie;
+    if (!this.axieDetailModal) return;
+
+    if (this.detailAxieImg) {
+      this.detailAxieImg.src = axie.image;
+      this.detailAxieImg.onerror = () => {
+        this.detailAxieImg.onerror = null;
+        this.detailAxieImg.src = `https://axiecdn.axieinfinity.com/axies/${axie.id}/axie/axie-full-transparent.png`;
+      };
+    }
+    if (this.detailAxieName) this.detailAxieName.textContent = axie.name;
+    if (this.detailAxieId) this.detailAxieId.textContent = `#${axie.id}`;
+    if (this.detailAxieSource) {
+      const isWallet = axieNFTManager.getWalletAxies().some(w => w.id === axie.id);
+      this.detailAxieSource.textContent = isWallet ? '🦊 Propiedad Verificada (Ronin Wallet)' : '🧪 Axie de Demostración';
+    }
+
+    if (this.detailClassBadge) {
+      this.detailClassBadge.className = `slot-badge class-${axie.class.toLowerCase()}`;
+      this.detailClassBadge.textContent = `${axie.class}`;
+    }
+
+    if (this.detailSpecialBadge) {
+      if (axie.specialType && axie.specialType !== 'Normal') {
+        this.detailSpecialBadge.textContent = `🌟 ${axie.specialType}`;
+        this.detailSpecialBadge.classList.remove('hidden');
+      } else {
+        this.detailSpecialBadge.classList.add('hidden');
+      }
+    }
+
+    if (this.detailSynergyDesc) {
+      const classSynergies: Record<string, string> = {
+        Plant: '🌿 Sinergia Planta: +15% Daño y Veneno persistente a quimeras al asignarlo al Slot 1.',
+        Beast: '🦊 Sinergia Bestia: +15% Daño y +35% Daño Crítico al asignarlo al Slot 2.',
+        Aqua: '💧 Sinergia Aqua: +15% Daño y +20% Radio de Impacto en Área al asignarlo al Slot 3.',
+        Bird: '🪶 Sinergia Pájaro: +15% Daño y +30% Alcance de Disparo al asignarlo al Slot 4.',
+        Bug: '🐛 Sinergia Insecto: +10% Cadencia de Ataque y ruptura de escudo enemigo.',
+        Reptile: '🦎 Sinergia Reptil: +10% Reflejo de daño y ralentización a enemigos cercanos.',
+        Mech: '🤖 Sinergia Mecánica: +15% Daño de impacto letal contra quimeras gigantes.',
+        Dawn: '✨ Sinergia Alba: +12% Daño sagrado y aceleración de recarga de habilidades.',
+        Dusk: '🌑 Sinergia Ocaso: +12% Daño en la oscuridad y probabilidad de golpe crítico.',
+      };
+      this.detailSynergyDesc.textContent = classSynergies[axie.class] || '⚡ Defensor de Lunacia: +5% Daño directo como NFT leal en combate.';
+    }
+
+    if (this.detailSpecialSynergy) {
+      if (axie.specialType && axie.specialType !== 'Normal') {
+        this.detailSpecialSynergy.innerHTML = `🌟 <strong>Bono Celestial (${axie.specialType}):</strong> +10% de daño cósmico a todas las defensas aliadas.`;
+        this.detailSpecialSynergy.classList.remove('hidden');
+      } else {
+        this.detailSpecialSynergy.classList.add('hidden');
+      }
+    }
+
+    if (this.detailExplorerLink) {
+      this.detailExplorerLink.href = `https://app.axieinfinity.com/marketplace/axies/${axie.id}`;
+    }
+
+    this.axieDetailModal.classList.remove('hidden');
+    sounds.playHit();
+  }
+
+  private closeAxieDetailModal() {
+    if (this.axieDetailModal) {
+      this.axieDetailModal.classList.add('hidden');
+      this.selectedDetailAxie = null;
+    }
+  }
+
+  private setRosterLoading(loading: boolean, text: string = 'Consultando en Ronin...') {
+    this.isRosterLoading = loading;
+    this.rosterLoadingText = text;
+    if (this.connectRoninBtn) {
+      this.connectRoninBtn.classList.toggle('loading', loading);
+    }
+    if (this.refreshRoninBtn) {
+      this.refreshRoninBtn.classList.toggle('spinning', loading);
+    }
+    if (loading && this.rosterCollectionGrid) {
+      this.rosterCollectionGrid.innerHTML = `
+        <div class="roster-loading-box">
+          <div class="roster-spinner"></div>
+          <div class="roster-loading-msg">⏳ ${this.rosterLoadingText}</div>
+          <div class="roster-loading-sub">Sincronizando contratos y metadatos oficiales en la blockchain...</div>
+        </div>
+      `;
+    }
+  }
+
+  private openRosterModal() {
+    if (this.rosterModal) {
+      this.rosterModal.classList.remove('hidden');
+      sounds.playHit();
+    }
+  }
+
+  private closeRosterModal() {
+    if (this.rosterModal) {
+      this.rosterModal.classList.add('hidden');
+      this.updateBottomDockCards();
+    }
+  }
+
+  private renderRosterUI() {
+    if (!this.rosterModal || this.rosterModal.classList.contains('hidden')) return;
+    if (this.isRosterLoading) return;
+
+    const loadout = axieNFTManager.getLoadout();
+
+    if (this.roninBtnText && this.roninStatusLabel) {
+      if (loadout.roninAddress) {
+        this.roninBtnText.textContent = 'Desconectar Ronin';
+        const shortAddr = `${loadout.roninAddress.slice(0, 8)}...${loadout.roninAddress.slice(-6)}`;
+        this.roninStatusLabel.textContent = `🟢 Conectado: ${shortAddr}`;
+        this.roninStatusLabel.classList.add('connected');
+        if (this.refreshRoninBtn) this.refreshRoninBtn.classList.remove('hidden');
+      } else {
+        this.roninBtnText.textContent = 'Conectar Ronin Wallet';
+        this.roninStatusLabel.textContent = 'Sin billetera conectada (Usa demo o introduce IDs/dirección)';
+        this.roninStatusLabel.classList.remove('connected');
+        if (this.refreshRoninBtn) this.refreshRoninBtn.classList.add('hidden');
+      }
+    }
+
+    if (this.modeBillboardBtn && this.modeMascotBtn) {
+      this.modeBillboardBtn.classList.toggle('active', loadout.visualMode === 'billboard_25d');
+      this.modeMascotBtn.classList.toggle('active', loadout.visualMode === 'mascot_3d');
+    }
+
+    const slots: TowerType[] = ['pomodoro', 'kotaro', 'bing', 'tripp'];
+    slots.forEach(slot => {
+      const customAxie = loadout.slots[slot];
+      const imgEl = document.querySelector(`#slot-img-${slot}`) as HTMLImageElement;
+      const phEl = document.querySelector(`#slot-placeholder-${slot}`) as HTMLElement;
+      const nameEl = document.querySelector(`#slot-name-${slot}`) as HTMLElement;
+      const idEl = document.querySelector(`#slot-id-${slot}`) as HTMLElement;
+      const clearBtn = document.querySelector(`.btn-clear-slot[data-slot="${slot}"]`) as HTMLElement;
+      const cardEl = document.querySelector(`.loadout-slot-card[data-slot="${slot}"]`) as HTMLElement;
+
+      if (customAxie) {
+        if (imgEl) {
+          imgEl.src = customAxie.image;
+          imgEl.onerror = () => {
+            imgEl.onerror = null;
+            imgEl.src = `https://axiecdn.axieinfinity.com/axies/${customAxie.id}/axie/axie-full-transparent.png`;
+          };
+          imgEl.classList.remove('hidden');
+        }
+        if (phEl) phEl.classList.add('hidden');
+        if (nameEl) nameEl.textContent = customAxie.name;
+        if (idEl) idEl.textContent = `#${customAxie.id} • ${customAxie.class}`;
+        if (clearBtn) clearBtn.classList.remove('hidden');
+        if (cardEl) cardEl.classList.add('has-custom');
+      } else {
+        if (imgEl) imgEl.classList.add('hidden');
+        if (phEl) phEl.classList.remove('hidden');
+        const defaultName = slot === 'pomodoro' ? 'Pomodoro' : slot === 'kotaro' ? 'Kotaro' : slot === 'bing' ? 'Bing' : 'Tripp';
+        if (nameEl) nameEl.textContent = defaultName;
+        if (idEl) idEl.textContent = 'Starter Original';
+        if (clearBtn) clearBtn.classList.add('hidden');
+        if (cardEl) cardEl.classList.remove('has-custom');
+      }
+    });
+
+    const walletAxies = axieNFTManager.getWalletAxies();
+    const demoAxies = axieNFTManager.getDemoAxies();
+    const allAxies = axieNFTManager.getAvailableAxies();
+
+    if (this.walletCountBadge) this.walletCountBadge.textContent = `${walletAxies.length}`;
+    if (this.demoCountBadge) this.demoCountBadge.textContent = `${demoAxies.length}`;
+    if (this.availableCountBadge) this.availableCountBadge.textContent = `${allAxies.length} Axies`;
+
+    // Load More Button visibility & progress
+    if (this.rosterLoadMoreBtn && this.loadMoreCount) {
+      const hasMore = axieNFTManager.hasMoreWalletAxies();
+      const total = axieNFTManager.getWalletTotalAxies();
+      if (hasMore && (this.activeRosterTab === 'wallet' || this.activeRosterTab === 'all')) {
+        this.rosterLoadMoreBtn.classList.remove('hidden');
+        this.loadMoreCount.textContent = `${walletAxies.length} / ${total}`;
+      } else {
+        this.rosterLoadMoreBtn.classList.add('hidden');
+      }
+    }
+
+    // Determine Axie source based on active tab
+    let sourceList: AxieNFT[] = [];
+    if (this.activeRosterTab === 'wallet') {
+      sourceList = walletAxies;
+    } else if (this.activeRosterTab === 'demo') {
+      sourceList = demoAxies;
+    } else {
+      sourceList = allAxies;
+    }
+
+    // Class filter
+    let filtered = sourceList;
+    if (this.activeRosterClass !== 'all') {
+      if (this.activeRosterClass === 'other') {
+        const mainClasses = ['Plant', 'Beast', 'Aqua', 'Bird'];
+        filtered = filtered.filter(a => !mainClasses.includes(a.class));
+      } else {
+        filtered = filtered.filter(a => a.class.toLowerCase() === this.activeRosterClass.toLowerCase());
+      }
+    }
+
+    // Search query filter
+    if (this.rosterSearchQuery) {
+      filtered = filtered.filter(a =>
+        a.id.toLowerCase().includes(this.rosterSearchQuery) ||
+        a.name.toLowerCase().includes(this.rosterSearchQuery) ||
+        a.class.toLowerCase().includes(this.rosterSearchQuery)
+      );
+    }
+
+    if (this.rosterCollectionGrid) {
+      this.rosterCollectionGrid.innerHTML = '';
+
+      if (filtered.length === 0) {
+        const isWalletTab = this.activeRosterTab === 'wallet';
+        this.rosterCollectionGrid.innerHTML = `
+          <div class="roster-empty-box">
+            <p>${isWalletTab ? 'No se encontraron Axies en tu Ronin Wallet con los filtros seleccionados.' : 'No se encontraron Axies con los filtros seleccionados.'}</p>
+            ${isWalletTab ? '<button class="btn-demo-quick" id="switch-demo-tab-btn">🧪 Ver Axies Demo</button>' : '<button class="btn-demo-quick" id="empty-load-demo-btn">🧪 Cargar Selección Demo</button>'}
+          </div>
+        `;
+        const switchDemoBtn = this.rosterCollectionGrid.querySelector('#switch-demo-tab-btn');
+        if (switchDemoBtn) {
+          switchDemoBtn.addEventListener('click', () => {
+            this.setRosterTab('demo');
+          });
+        }
+        const emptyDemoBtn = this.rosterCollectionGrid.querySelector('#empty-load-demo-btn');
+        if (emptyDemoBtn) {
+          emptyDemoBtn.addEventListener('click', () => {
+            axieNFTManager.loadDemoTeam();
+            this.renderRosterUI();
+          });
+        }
+        return;
+      }
+
+      filtered.forEach(axie => {
+        const card = document.createElement('div');
+        card.className = 'axie-nft-card';
+        card.title = 'Haz clic para ver detalles y bonos tácticos';
+
+        const specialBadge = axie.specialType && axie.specialType !== 'Normal'
+          ? `<span class="axie-special-tag">${axie.specialType}</span>`
+          : '';
+
+        const classStyle = axie.class.toLowerCase();
+
+        card.innerHTML = `
+          <div class="axie-card-top">
+            <span class="axie-class-tag slot-badge class-${classStyle}">${axie.class}</span>
+            ${specialBadge}
+          </div>
+          <div class="axie-card-thumb-wrap">
+            <img src="${axie.image}" class="axie-card-thumb" alt="${axie.name}" loading="lazy" onerror="this.onerror=null;this.src='https://axiecdn.axieinfinity.com/axies/${axie.id}/axie/axie-full-transparent.png';" />
+          </div>
+          <div class="axie-card-title">${axie.name}</div>
+          <div class="axie-card-id">#${axie.id}</div>
+          <div class="assign-buttons-row">
+            <button class="btn-assign-slot" data-slot="pomodoro" title="Asignar al Slot 1 (Planta)">+ Slot 1</button>
+            <button class="btn-assign-slot" data-slot="kotaro" title="Asignar al Slot 2 (Bestia)">+ Slot 2</button>
+            <button class="btn-assign-slot" data-slot="bing" title="Asignar al Slot 3 (Aqua)">+ Slot 3</button>
+            <button class="btn-assign-slot" data-slot="tripp" title="Asignar al Slot 4 (Pájaro)">+ Slot 4</button>
+          </div>
+        `;
+
+        // Clicking the card opens the Axie Detail & Tactical Inspection modal
+        card.addEventListener('click', (e) => {
+          if ((e.target as HTMLElement).closest('.btn-assign-slot')) return;
+          this.openAxieDetailModal(axie);
+        });
+
+        card.querySelectorAll('.btn-assign-slot').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const targetSlot = btn.getAttribute('data-slot') as TowerType;
+            if (targetSlot) {
+              axieNFTManager.assignAxieToSlot(targetSlot, axie);
+              sounds.playGem();
+              this.showToast(`¡${axie.name} (#${axie.id}) asignado al Slot de ${TOWER_CONFIGS[targetSlot].classLabel}!`, 'info');
+              this.renderRosterUI();
+              this.updateBottomDockCards();
+            }
+          });
+        });
+
+        this.rosterCollectionGrid.appendChild(card);
+      });
+    }
+  }
+
+  private updateBottomDockCards() {
+    const slots: TowerType[] = ['pomodoro', 'kotaro', 'bing', 'tripp'];
+    slots.forEach(slot => {
+      const card = document.querySelector(`.tower-card[data-tower="${slot}"]`) as HTMLElement;
+      if (!card) return;
+
+      const config = TOWER_CONFIGS[slot];
+      const avatarEl = card.querySelector('.card-avatar') as HTMLElement;
+      const nameEl = card.querySelector('.card-name') as HTMLElement;
+      const roleEl = card.querySelector('.card-role') as HTMLElement;
+
+      if (avatarEl) {
+        avatarEl.innerHTML = `<img src="${config.avatarImage}" class="tower-card-thumb-img" alt="${config.name}" />`;
+      }
+      if (nameEl) {
+        nameEl.textContent = config.name;
+      }
+      if (roleEl) {
+        roleEl.textContent = t(`${slot}Role`);
+      }
+      card.classList.remove('custom-card');
+    });
+  }
+
   private startTutorial() {
     this.isTutorialActive = true;
     this.currentTutorialStep = 0;
-    this.startScreen.classList.add('hidden');
+    if (this.startScreen) this.startScreen.classList.add('hidden');
+    if (this.mainMenuHub) this.mainMenuHub.classList.add('hidden');
+    this.tdUI.classList.remove('hidden');
     this.tutorialOverlay.classList.remove('hidden');
+    this.arena.setGameCamera(false);
     this.closeInspector();
     this.deselectBuildType();
     sounds.playGem();
     this.renderTutorialStep(0);
   }
 
+  private onLanguageChanged() {
+    translateDOM();
+    this.syncSettingsUI();
+    this.updateBottomDockCards();
+    if (this.rosterModal && !this.rosterModal.classList.contains('hidden')) {
+      this.renderRosterUI();
+    }
+    if (this.isTutorialActive) {
+      this.renderTutorialStep(this.currentTutorialStep);
+    }
+    if (this.inspectedTower) {
+      this.openInspector(this.inspectedTower);
+    }
+    this.updateHUD();
+    if (this.activeRunes.length > 0) {
+      this.renderRuneChips();
+    }
+  }
+
+  private surrenderGame() {
+    this.returnToMainMenu();
+  }
+
   private renderTutorialStep(index: number) {
-    const step = TUTORIAL_STEPS[index];
+    const steps = getTutorialSteps();
+    const step = steps[index];
     if (!step) return;
 
     this.tutorialGuideAvatar.textContent = step.avatar;
     this.tutorialTitle.textContent = step.title;
     this.tutorialBody.innerHTML = step.body;
-    this.tutorialStepTag.textContent = `Paso ${index + 1} de ${TUTORIAL_STEPS.length}`;
+    this.tutorialStepTag.textContent = t('tutStepLabel', { current: index + 1, total: steps.length });
 
     // Render progress dots
     this.tutorialDots.innerHTML = '';
-    TUTORIAL_STEPS.forEach((_, i) => {
+    steps.forEach((_, i) => {
       const dot = document.createElement('div');
       dot.className = `tutorial-dot ${i === index ? 'active' : ''}`;
+      dot.setAttribute('title', `${t('tutStepLabel', { current: i + 1, total: steps.length })}: ${steps[i].title}`);
+      dot.addEventListener('click', () => {
+        if (this.currentTutorialStep !== i) {
+          this.currentTutorialStep = i;
+          this.renderTutorialStep(i);
+          sounds.playShoot();
+        }
+      });
       this.tutorialDots.appendChild(dot);
     });
 
     // Previous button state
     this.tutorialPrevBtn.disabled = index === 0;
+    this.tutorialPrevBtn.textContent = t('tutPrevBtn');
 
     // Next button text & styling
-    if (index === TUTORIAL_STEPS.length - 1) {
-      this.tutorialNextBtn.textContent = '⚔️ ¡A JUGAR!';
+    if (index === steps.length - 1) {
+      this.tutorialNextBtn.textContent = t('tutFinishBtn');
       this.tutorialNextBtn.className = 'btn-tut-nav finish';
     } else {
-      this.tutorialNextBtn.textContent = 'Siguiente ➡️';
+      this.tutorialNextBtn.textContent = t('tutNextBtn');
       this.tutorialNextBtn.className = 'btn-tut-nav primary';
     }
 
@@ -434,7 +1806,7 @@ class TowerDefenseGame {
   }
 
   private positionTutorialElements() {
-    const step = TUTORIAL_STEPS[this.currentTutorialStep];
+    const step = getTutorialSteps()[this.currentTutorialStep];
     if (!step) return;
 
     // Reset explicit positioning styles
@@ -512,7 +1884,7 @@ class TowerDefenseGame {
   }
 
   private nextTutorialStep() {
-    if (this.currentTutorialStep < TUTORIAL_STEPS.length - 1) {
+    if (this.currentTutorialStep < getTutorialSteps().length - 1) {
       this.currentTutorialStep++;
       this.renderTutorialStep(this.currentTutorialStep);
       sounds.playShoot();
@@ -537,8 +1909,33 @@ class TowerDefenseGame {
 
     if (!this.isGameStarted) {
       this.isGameStarted = true;
-      this.startScreen.classList.add('hidden');
+      if (this.startScreen) this.startScreen.classList.add('hidden');
+      if (this.mainMenuHub) this.mainMenuHub.classList.add('hidden');
+      this.tdUI.classList.remove('hidden');
+      this.arena.setGameCamera(true);
       this.resetGame();
+      if (sounds.getMusicVolume() > 0) {
+        sounds.playBattleMusic(true);
+      }
+    }
+  }
+
+  private closeTutorial() {
+    this.isTutorialActive = false;
+    this.tutorialOverlay.classList.add('hidden');
+    sounds.playHit();
+
+    if (!this.isGameStarted) {
+      if (this.mainMenuHub) {
+        this.mainMenuHub.classList.remove('hidden');
+      } else if (this.startScreen) {
+        this.startScreen.classList.remove('hidden');
+      }
+      this.tdUI.classList.add('hidden');
+      this.arena.setTitleCamera();
+      if (sounds.getMusicVolume() > 0) {
+        sounds.playTitleMusic(false);
+      }
     }
   }
 
@@ -561,12 +1958,21 @@ class TowerDefenseGame {
 
   private triggerSlpError(required: number, towerName: string) {
     sounds.playError();
-    this.showToast(`⚠️ ¡SLP Insuficiente! Necesitas ${required} SLP para ${towerName}.`, 'error');
+    this.showToast(t('toastInsufficientSLP', { cost: required, name: towerName }), 'error');
     if (this.slpPill) {
       this.slpPill.classList.remove('shake-error');
       void this.slpPill.offsetWidth; // Force reflow
       this.slpPill.classList.add('shake-error');
       setTimeout(() => this.slpPill.classList.remove('shake-error'), 450);
+    }
+  }
+
+  private triggerPopError() {
+    if (this.popPill) {
+      this.popPill.classList.remove('shake-error');
+      void this.popPill.offsetWidth; // Force reflow
+      this.popPill.classList.add('shake-error');
+      setTimeout(() => this.popPill.classList.remove('shake-error'), 450);
     }
   }
 
@@ -576,43 +1982,37 @@ class TowerDefenseGame {
 
     if (this.selectedBuildType) {
       this.raycaster.setFromCamera(this.mouse, this.arena.camera);
-      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.18);
       const hitPoint = new THREE.Vector3();
       if (this.raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-        const config = TOWER_CONFIGS[this.selectedBuildType];
-        const isValid = this.isValidPlacement(hitPoint, config.cost);
-        this.arena.updatePlacementPreview(hitPoint, isValid, config.range);
+        const isBuilding = this.selectedBuildType in BUILDING_CONFIGS;
+        const cost = isBuilding ? BUILDING_CONFIGS[this.selectedBuildType as BuildingType].cost : TOWER_CONFIGS[this.selectedBuildType as TowerType].cost;
+        const range = isBuilding ? 0 : TOWER_CONFIGS[this.selectedBuildType as TowerType].range;
+
+        const grid = this.arena.gridSystem.worldToGrid(hitPoint.x, hitPoint.z);
+        if (grid) {
+          const snappedWorld = this.arena.gridSystem.gridToWorld(grid.col, grid.row);
+          const footprint = 3;
+          const isValid = this.isValidGridPlacement(grid.col, grid.row, cost, isBuilding, footprint);
+          this.arena.updatePlacementPreview(snappedWorld, isValid, range, footprint);
+          this.arena.gridSystem.updateHighlight(grid.col, grid.row, isValid, footprint);
+        } else {
+          this.arena.hidePlacementPreview();
+        }
       }
     } else {
       this.arena.hidePlacementPreview();
     }
   }
 
-  private isValidPlacement(pos: THREE.Vector3, cost: number): boolean {
+  private isValidGridPlacement(col: number, row: number, cost: number, isBuilding: boolean = false, footprint: number = 3): boolean {
     if (this.slp < cost) return false;
-
-    // Map boundaries
-    if (Math.abs(pos.x) > 27 || Math.abs(pos.z) > 19) return false;
-
-    // Keep clear of the Catmull-Rom path
-    if (this.arena.pathSystem.isNearPath(pos, 2.2)) return false;
-
-    // Clearance from Spawning Portal and Ancient Tree
-    if (pos.distanceTo(new THREE.Vector3(-19, 0, -8)) < 3.8) return false;
-    if (pos.distanceTo(new THREE.Vector3(18, 0, 0)) < 4.2) return false;
-
-    // Minimum distance from any existing tower
-    for (const t of this.towers) {
-      if (pos.distanceTo(t.position) < 2.5) {
-        return false;
-      }
-    }
-
-    return true;
+    if (!isBuilding && this.currentPopulation >= this.maxPopulation) return false;
+    return this.arena.gridSystem.canPlaceTower(col, row, footprint);
   }
 
   private resetGame() {
-    this.lives = 20;
+    this.lives = 10;
     this.slp = 250;
     this.currentWaveIndex = 0;
     this.isWaveRunning = false;
@@ -620,7 +2020,11 @@ class TowerDefenseGame {
     this.spellCooldown = 0;
     this.isSpellAiming = false;
     this.selectedBuildType = null;
-    this.cardCooldowns = { pomodoro: 0, kotaro: 0, bing: 0, tripp: 0 };
+    this.cardCooldowns = { pomodoro: 0, kotaro: 0, bing: 0, tripp: 0, hemp_hut: 0, hummer_hut: 0 };
+    this.unlockedTechs.clear();
+    this.lv3Tokens = { pomodoro: 0, kotaro: 0, bing: 0, tripp: 0 };
+    this.currentPopulation = 0;
+    this.maxPopulation = 3;
     this.isIntermission = true;
     this.intermissionTimer = this.initialIntermission;
     this.lastWarningSecond = -1;
@@ -637,6 +2041,10 @@ class TowerDefenseGame {
       this.removeStatusBadge(t);
       this.arena.scene.remove(t.mesh);
     }
+    for (const b of this.buildings) {
+      this.removeBuildingStatusBadge(b);
+      this.arena.scene.remove(b.mesh);
+    }
     for (const e of this.enemies) this.arena.scene.remove(e.mesh);
     for (const p of this.projectiles) {
       this.arena.scene.remove(p.mesh);
@@ -644,6 +2052,7 @@ class TowerDefenseGame {
     }
 
     this.towers = [];
+    this.buildings = [];
     this.enemies = [];
     this.projectiles = [];
     this.waveQueue = [];
@@ -655,20 +2064,41 @@ class TowerDefenseGame {
     }
     this.groundHazards = [];
     this.activeRunes = [];
-    this.activeSynergies = { plantAqua: false, beastBird: false, fullLunacia: false };
     this.isDraftingRune = false;
     this.runeModal.classList.add('hidden');
-    this.recalculateSynergies();
     this.renderRuneChips();
 
+    // Regenerate procedural map layout, portal, tree and obstacles for new game
+    this.arena.generateRandomMap();
+
     this.updateHUD();
-    sounds.startMusic();
+    if (sounds.getMusicVolume() > 0) {
+      sounds.playBattleMusic(true);
+    }
+    if (this.arena.pathSystem.currentArchetype) {
+      this.showToast(`🗺️ ${this.arena.pathSystem.currentArchetype.name}`, 'info');
+    }
   }
 
   private updateHUD() {
     this.waveDisplay.textContent = `${this.currentWaveIndex + 1} / ${TD_WAVES.length}`;
     this.livesDisplay.textContent = `${this.lives}`;
     this.slpDisplay.textContent = `${this.slp} SLP`;
+
+    // Population Display (Warcraft 3 style)
+    if (this.popDisplay) {
+      this.popDisplay.textContent = `${this.currentPopulation} / ${this.maxPopulation}`;
+    }
+    if (this.popPill) {
+      this.popPill.classList.toggle('at-capacity', this.currentPopulation >= this.maxPopulation);
+    }
+
+    // Reactively update inspector if a tower or building is currently inspected
+    if (this.inspectedTower) {
+      this.updateInspectorState();
+    } else if (this.inspectedBuilding) {
+      this.updateBuildingInspectorState();
+    }
 
     if (this.isIntermission) {
       this.startWaveBtn.disabled = false;
@@ -677,11 +2107,20 @@ class TowerDefenseGame {
       if (sec <= 3) {
         this.startWaveBtn.classList.add('urgent');
       }
-      this.startWaveBtn.textContent = `⏳ Ola ${this.currentWaveIndex + 1} en ${sec}s | ⚡ Iniciar (+15⚡)`;
+      this.startWaveBtn.textContent = t('startWaveIntermission', {
+        wave: this.currentWaveIndex + 1,
+        sec
+      });
     } else if (this.isWaveRunning) {
       this.startWaveBtn.disabled = true;
       this.startWaveBtn.className = 'btn-start-wave';
-      this.startWaveBtn.textContent = `⚔️ En Combate (Ola ${this.currentWaveIndex + 1})...`;
+      this.startWaveBtn.textContent = t('startWaveFighting', {
+        wave: this.currentWaveIndex + 1
+      });
+    } else {
+      this.startWaveBtn.disabled = false;
+      this.startWaveBtn.className = 'btn-start-wave';
+      this.startWaveBtn.textContent = t('startWaveReady');
     }
 
     // Update Spell Cooldown UI
@@ -704,7 +2143,7 @@ class TowerDefenseGame {
 
     // 1. If Spell is aiming, cast spell on ground intersection
     if (this.isSpellAiming) {
-      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.18);
       const hitPoint = new THREE.Vector3();
       if (this.raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
         this.castMeteorSpell(hitPoint);
@@ -714,76 +2153,165 @@ class TowerDefenseGame {
       return;
     }
 
-    // 2. If building a tower freely
+    // 2. If building a tower or homeland structure freely
     if (this.selectedBuildType) {
-      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.18);
       const hitPoint = new THREE.Vector3();
       if (this.raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-        const config = TOWER_CONFIGS[this.selectedBuildType];
-        if (this.isValidPlacement(hitPoint, config.cost)) {
+        const isBuilding = this.selectedBuildType in BUILDING_CONFIGS;
+        const cost = isBuilding ? BUILDING_CONFIGS[this.selectedBuildType as BuildingType].cost : TOWER_CONFIGS[this.selectedBuildType as TowerType].cost;
+        const name = isBuilding ? BUILDING_CONFIGS[this.selectedBuildType as BuildingType].name : TOWER_CONFIGS[this.selectedBuildType as TowerType].name;
+        const buildTime = isBuilding ? BUILDING_CONFIGS[this.selectedBuildType as BuildingType].buildTime : TOWER_CONFIGS[this.selectedBuildType as TowerType].buildTime;
+
+        const grid = this.arena.gridSystem.worldToGrid(hitPoint.x, hitPoint.z);
+        if (grid && this.isValidGridPlacement(grid.col, grid.row, cost, isBuilding)) {
+          const snappedWorld = this.arena.gridSystem.gridToWorld(grid.col, grid.row);
+
           // Deduct cost and build
-          this.slp -= config.cost;
+          this.slp -= cost;
           sounds.playShoot();
 
-          const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, 1);
-          mesh.position.set(hitPoint.x, 0, hitPoint.z);
-
-          // Create & attach 3D overhead progress bar for construction
-          const { group: pbGroup, fill: pbFill } = this.arena.createTowerProgressBar();
-          pbGroup.visible = true;
-          (pbFill.material as THREE.MeshBasicMaterial).color.setHex(0x00f0ff);
-          pbFill.scale.set(0.01, 1, 1);
-          mesh.add(pbGroup);
-
-          this.arena.scene.add(mesh);
-
           const hasSwift = this.activeRunes.some(r => r.id === 'swift_craft');
-          const bDuration = hasSwift ? config.buildTime * 0.55 : config.buildTime;
+          const bDuration = hasSwift ? buildTime * 0.55 : buildTime;
 
-          const tower: TowerInstance = {
-            id: `tower_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-            type: config.type,
-            level: 1,
-            position: new THREE.Vector3(hitPoint.x, 0, hitPoint.z),
-            range: config.range,
-            damage: config.damage,
-            attackSpeed: config.attackSpeed,
-            attackTimer: 0,
-            targetEnemyId: null,
-            targetingMode: 'first',
-            ultimateCharge: 0,
-            ultimateMax: config.type === 'pomodoro' ? 6 : config.type === 'kotaro' ? 5 : config.type === 'bing' ? 4 : 4,
-            mesh,
-            mixer,
-            isUnderConstruction: true,
-            constructionTimer: bDuration,
-            constructionDuration: bDuration,
-            isUpgrading: false,
-            upgradeTimer: 0,
-            upgradeDuration: 0,
-            targetLevel: 1,
-            progressBarGroup: pbGroup,
-            progressBarFill: pbFill
-          };
+          if (isBuilding) {
+            // Build Homeland Structure
+            const buildingType = this.selectedBuildType as BuildingType;
+            const { mesh } = this.arena.createBuildingMesh(buildingType);
+            mesh.position.set(snappedWorld.x, 0.18, snappedWorld.z);
 
-          this.towers.push(tower);
-          this.recalculateSynergies();
+            // Progress Bar
+            const { group: pbGroup, fill: pbFill } = this.arena.createTowerProgressBar();
+            pbGroup.visible = true;
+            (pbFill.material as THREE.MeshBasicMaterial).color.setHex(0xf59e0b);
+            pbFill.scale.set(0.01, 1, 1);
+            mesh.add(pbGroup);
 
-          // Trigger card cooldown in tray
-          this.cardCooldowns[config.type] = bDuration;
+            this.arena.scene.add(mesh);
 
-          // Clear selection
-          this.deselectBuildType();
+            const buildingId = `building_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            this.arena.gridSystem.occupyTower(grid.col, grid.row, buildingId, 3);
 
-          this.updateHUD();
-          this.openInspector(tower);
-          return;
+            const building: BuildingInstance = {
+              id: buildingId,
+              type: buildingType,
+              level: 1,
+              position: new THREE.Vector3(snappedWorld.x, 0.18, snappedWorld.z),
+              mesh,
+              populationBonus: BUILDING_CONFIGS[buildingType].populationBonus,
+              isUnderConstruction: true,
+              constructionTimer: bDuration,
+              constructionDuration: bDuration,
+              progressBarGroup: pbGroup,
+              progressBarFill: pbFill,
+              researchedTechs: []
+            };
+
+            this.buildings.push(building);
+            this.cardCooldowns[buildingType] = bDuration;
+            this.deselectBuildType();
+            this.updateHUD();
+            this.openBuildingInspector(building);
+            return;
+          } else {
+            // Build Axie Guardian Tower
+            const towerType = this.selectedBuildType as TowerType;
+            const config = TOWER_CONFIGS[towerType];
+            const customAxie = axieNFTManager.getAxieForTowerType(towerType);
+            const visualMode = axieNFTManager.getLoadout().visualMode;
+            const { mesh, mixer, billboardMesh, hologramGroup } = this.arena.createTowerMesh(
+              config.modelFile,
+              1,
+              customAxie,
+              visualMode
+            );
+            mesh.position.set(snappedWorld.x, 0.18, snappedWorld.z);
+
+            // Progress bar
+            const { group: pbGroup, fill: pbFill } = this.arena.createTowerProgressBar();
+            pbGroup.visible = true;
+            (pbFill.material as THREE.MeshBasicMaterial).color.setHex(0x00f0ff);
+            pbFill.scale.set(0.01, 1, 1);
+            mesh.add(pbGroup);
+
+            this.arena.scene.add(mesh);
+
+            const towerId = `tower_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            this.arena.gridSystem.occupyTower(grid.col, grid.row, towerId, 3);
+
+            let towerDamage = config.damage;
+            let towerAttackSpeed = config.attackSpeed;
+            let towerRange = config.range;
+
+            if (customAxie) {
+              const isAffinity = (
+                (config.type === 'pomodoro' && customAxie.class === 'Plant') ||
+                (config.type === 'kotaro' && customAxie.class === 'Beast') ||
+                (config.type === 'bing' && customAxie.class === 'Aqua') ||
+                (config.type === 'tripp' && customAxie.class === 'Bird')
+              );
+              if (isAffinity) {
+                towerDamage = Math.round(towerDamage * 1.15);
+                towerAttackSpeed = +(towerAttackSpeed * 1.10).toFixed(2);
+              } else {
+                towerDamage = Math.round(towerDamage * 1.05);
+              }
+
+              if (customAxie.specialType && customAxie.specialType !== 'Normal') {
+                towerDamage = Math.round(towerDamage * 1.10);
+              }
+            }
+
+            const tower: TowerInstance = {
+              id: towerId,
+              type: config.type,
+              level: 1,
+              position: new THREE.Vector3(snappedWorld.x, 0.18, snappedWorld.z),
+              range: towerRange,
+              damage: towerDamage,
+              attackSpeed: towerAttackSpeed,
+              attackTimer: 0,
+              targetEnemyId: null,
+              targetingMode: 'first',
+              ultimateCharge: 0,
+              ultimateMax: config.type === 'pomodoro' ? 6 : config.type === 'kotaro' ? 5 : config.type === 'bing' ? 4 : 4,
+              mesh,
+              mixer,
+              billboardMesh,
+              hologramGroup,
+              customAxie: customAxie || undefined,
+              visualMode,
+              attackAnimTimer: 0,
+              isUnderConstruction: true,
+              constructionTimer: bDuration,
+              constructionDuration: bDuration,
+              isUpgrading: false,
+              upgradeTimer: 0,
+              upgradeDuration: 0,
+              targetLevel: 1,
+              progressBarGroup: pbGroup,
+              progressBarFill: pbFill
+            };
+
+            this.towers.push(tower);
+            this.currentPopulation++; // Consume 1 population
+
+            this.cardCooldowns[config.type] = bDuration;
+            this.deselectBuildType();
+            this.updateHUD();
+            this.openInspector(tower);
+            return;
+          }
         } else {
-          if (this.slp < config.cost) {
-            this.triggerSlpError(config.cost, config.name);
+          if (this.slp < cost) {
+            this.triggerSlpError(cost, name);
+          } else if (!isBuilding && this.currentPopulation >= this.maxPopulation) {
+            sounds.playError();
+            this.showToast(t('toastPopLimit', { cur: this.currentPopulation, max: this.maxPopulation }), 'error');
+            this.triggerPopError();
           } else {
             sounds.playError();
-            this.showToast('⚠️ No puedes colocar una torre aquí (terreno bloqueado o muy cerca del camino).', 'error');
+            this.showToast(t('toastBlockedSpot'), 'error');
           }
           return;
         }
@@ -814,44 +2342,88 @@ class TowerDefenseGame {
       }
     }
 
+    // 3b. Check if clicked an existing building to inspect
+    if (this.buildings.length > 0) {
+      const buildingMeshes = this.buildings.map(b => b.mesh);
+      const intersects = this.raycaster.intersectObjects(buildingMeshes, true);
+
+      if (intersects.length > 0) {
+        let clickedObj: THREE.Object3D | null = intersects[0].object;
+        let clickedBuilding: BuildingInstance | null = null;
+        while (clickedObj && clickedObj !== this.arena.scene) {
+          const found = this.buildings.find(b => b.mesh === clickedObj);
+          if (found) {
+            clickedBuilding = found;
+            break;
+          }
+          clickedObj = clickedObj.parent;
+        }
+
+        if (clickedBuilding) {
+          this.openBuildingInspector(clickedBuilding);
+          return;
+        }
+      }
+    }
+
     // 4. Clicked empty ground: close inspector and deselect
     this.closeInspector();
   }
 
   private openInspector(tower: TowerInstance) {
+    this.inspectedBuilding = null;
     this.inspectedTower = tower;
     const config = TOWER_CONFIGS[tower.type];
 
-    this.inspectAvatar.textContent = config.icon;
-    this.inspectName.textContent = `${config.name} (${config.classLabel})`;
+    if (tower.customAxie) {
+      this.inspectAvatar.innerHTML = `<img src="${tower.customAxie.image}" style="width:38px;height:38px;object-fit:contain;" />`;
+      this.inspectName.textContent = `${tower.customAxie.name}`;
+      const nftBox = document.getElementById('inspect-nft-box');
+      const nftId = document.getElementById('inspect-nft-id');
+      const nftSynergy = document.getElementById('inspect-nft-synergy');
+      const nftLink = document.getElementById('inspect-marketplace-link') as HTMLAnchorElement;
+      if (nftBox && nftId && nftLink) {
+        nftBox.classList.remove('hidden');
+        nftId.textContent = `#${tower.customAxie.id}`;
+        nftLink.href = `https://app.axieinfinity.com/marketplace/axies/${tower.customAxie.id}`;
+        if (nftSynergy) {
+          const isAffinity = (
+            (tower.type === 'pomodoro' && tower.customAxie.class === 'Plant') ||
+            (tower.type === 'kotaro' && tower.customAxie.class === 'Beast') ||
+            (tower.type === 'bing' && tower.customAxie.class === 'Aqua') ||
+            (tower.type === 'tripp' && tower.customAxie.class === 'Bird')
+          );
+          if (isAffinity) {
+            nftSynergy.textContent = `⚡ Sinergia ${tower.customAxie.class} (+15% Daño)`;
+            nftSynergy.style.display = 'inline-block';
+          } else if (tower.customAxie.specialType && tower.customAxie.specialType !== 'Normal') {
+            nftSynergy.textContent = `🌟 Bono ${tower.customAxie.specialType} (+10% Daño)`;
+            nftSynergy.style.display = 'inline-block';
+          } else {
+            nftSynergy.textContent = `⚔️ Defensor NFT (+5% Daño)`;
+            nftSynergy.style.display = 'inline-block';
+          }
+        }
+      }
+    } else {
+      this.inspectAvatar.innerHTML = `<img src="${config.avatarImage}" style="width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6));" alt="${config.name}" />`;
+      this.inspectName.textContent = config.name;
+      const nftBox = document.getElementById('inspect-nft-box');
+      if (nftBox) nftBox.classList.add('hidden');
+    }
+
     this.inspectDmg.textContent = `${Math.round(tower.damage)}`;
     this.inspectRange.textContent = `${tower.range.toFixed(1)}`;
     this.inspectSpeed.textContent = `${tower.attackSpeed.toFixed(1)}/s`;
-    this.inspectTrait.textContent = config.specialTrait;
+    this.inspectTrait.textContent = t(`${tower.type}Trait`);
 
-    if (tower.isUnderConstruction) {
-      this.inspectLevelTag.textContent = `En Construcción... (${Math.ceil(tower.constructionTimer)}s)`;
-      this.upgradeTowerBtn.disabled = true;
-      this.upgradeCostText.textContent = 'CONSTRUYENDO...';
-    } else if (tower.isUpgrading) {
-      this.inspectLevelTag.textContent = `Mejorando a Nivel ${tower.targetLevel}...`;
-      this.upgradeTowerBtn.disabled = true;
-      this.upgradeCostText.textContent = `MEJORANDO... (${Math.ceil(tower.upgradeTimer)}s)`;
-    } else {
-      this.inspectLevelTag.textContent = `Nivel ${tower.level}`;
-      // Upgrade Cost
-      const currentUpCost = config.upgradeCost * tower.level;
-      this.upgradeCostText.textContent = `${currentUpCost} ⚡`;
-      this.upgradeTowerBtn.disabled = tower.level >= 3 || this.slp < currentUpCost;
-      if (tower.level >= 3) {
-        this.upgradeCostText.textContent = 'MÁXIMO';
-      }
-    }
+    // Ensure stats grid and targeting buttons are visible for towers
+    const statsGrid = this.inspectorModal.querySelector('.inspector-stats') as HTMLElement;
+    if (statsGrid) statsGrid.style.display = 'grid';
+    const targetModeRow = this.inspectorModal.querySelector('.target-modes-row') as HTMLElement;
+    if (targetModeRow) targetModeRow.style.display = 'flex';
 
-    // Sell Refund (+70% of total invested)
-    const invested = config.cost + (tower.level - 1) * config.upgradeCost;
-    const refund = Math.round(invested * 0.7);
-    this.sellRefundText.textContent = `+${refund} ⚡`;
+    this.updateInspectorState();
 
     // Targeting Mode Buttons State
     const targetModeBtns = document.querySelectorAll('.btn-target-mode');
@@ -865,13 +2437,10 @@ class TowerDefenseGame {
       this.ultimateChargeText.textContent = `${tower.ultimateCharge} / ${tower.ultimateMax}`;
       const pct = Math.min(100, Math.round((tower.ultimateCharge / tower.ultimateMax) * 100));
       this.ultimateFill.style.width = `${pct}%`;
-      const ultDescs: Record<TowerType, string> = {
-        pomodoro: 'Bombardeo Triple: cada 6 ataques dispara 3 proyectiles tóxicos en área.',
-        kotaro: 'Tajo Giratorio: cada 5 ataques ejecuta un tajo circular en 360° en 3.5m.',
-        bing: 'Oleaje de Tsunami: cada 4 ataques desata una ola que empuja 2.5m hacia atrás.',
-        tripp: 'Saeta Divina: cada 4 ataques dispara un rayo que atraviesa a todos en línea recta.'
-      };
-      this.ultimateDesc.textContent = ultDescs[tower.type];
+      const ultKey = tower.type === 'pomodoro' ? 'ultPomodoro' :
+                     tower.type === 'kotaro' ? 'ultKotaro' :
+                     tower.type === 'bing' ? 'ultBing' : 'ultTripp';
+      this.ultimateDesc.textContent = t(ultKey);
     } else {
       this.ultimateStatusBox.classList.add('hidden');
     }
@@ -880,16 +2449,336 @@ class TowerDefenseGame {
     this.arena.showRangeIndicator(tower.position, tower.range);
   }
 
+  private openBuildingInspector(building: BuildingInstance) {
+    this.inspectedTower = null;
+    this.inspectedBuilding = building;
+    const config = BUILDING_CONFIGS[building.type];
+
+    const nftBox = document.getElementById('inspect-nft-box');
+    if (nftBox) nftBox.classList.add('hidden');
+
+    const buildingImg = (building.type === 'hummer_hut' && building.level >= 2 && config.upgradeImageFile)
+      ? config.upgradeImageFile
+      : config.imageFile;
+    this.inspectAvatar.innerHTML = `<img src="${buildingImg}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;" />`;
+    this.inspectName.textContent = config.name;
+    this.inspectTrait.textContent = config.specialTrait;
+
+    // Hide attack stats & targeting mode row since it is a support structure
+    const statsGrid = this.inspectorModal.querySelector('.inspector-stats') as HTMLElement;
+    if (statsGrid) statsGrid.style.display = 'none';
+    if (this.inspectorTargetingSection) this.inspectorTargetingSection.style.display = 'none';
+    const targetModeRow = this.inspectorModal.querySelector('.target-modes-row') as HTMLElement;
+    if (targetModeRow) targetModeRow.style.display = 'none';
+    this.ultimateStatusBox.classList.add('hidden');
+    if (this.towerTechLockNotice) this.towerTechLockNotice.classList.add('hidden');
+
+    // Show/Hide Hummer Hut research panel
+    if (building.type === 'hummer_hut') {
+      if (this.inspectorResearchSection) this.inspectorResearchSection.classList.remove('hidden');
+      this.renderResearchTechList(building);
+    } else {
+      if (this.inspectorResearchSection) this.inspectorResearchSection.classList.add('hidden');
+    }
+
+    this.updateBuildingInspectorState();
+
+    this.inspectorModal.classList.remove('hidden');
+    this.arena.hideRangeIndicator();
+  }
+
+  private renderResearchTechList(building: BuildingInstance) {
+    if (!this.researchTechList) return;
+    this.researchTechList.innerHTML = '';
+
+    const techs = Object.values(TECH_CONFIGS);
+    const hasGivenLv3Permit = building.researchedTechs?.some(id => TECH_CONFIGS[id]?.targetLevel === 3);
+
+    for (const tech of techs) {
+      const isAlreadyResearchedInThisBuilding = building.researchedTechs?.includes(tech.id);
+      const isUnlockedGlobally = this.unlockedTechs.has(tech.id);
+      const isCurrentlyResearching = building.currentResearch?.techId === tech.id;
+      const anyResearching = !!building.currentResearch || !!building.isUpgrading;
+      const meetsBuildingLvl = building.level >= (tech.reqBuildingLevel || 1);
+
+      const row = document.createElement('div');
+      row.className = `tech-item-row ${(isAlreadyResearchedInThisBuilding || (tech.targetLevel === 2 && isUnlockedGlobally)) ? 'unlocked' : ''} ${isCurrentlyResearching ? 'researching' : ''}`;
+
+      const info = document.createElement('div');
+      info.className = 'tech-item-info';
+      info.innerHTML = `
+        <span class="tech-item-icon">${tech.icon}</span>
+        <div class="tech-item-text">
+          <span class="tech-item-title">${t(tech.nameKey)}</span>
+          <span class="tech-item-desc">${t(tech.descKey)}</span>
+        </div>
+      `;
+      row.appendChild(info);
+
+      const actionArea = document.createElement('div');
+      if (tech.targetLevel === 2 && isUnlockedGlobally) {
+        actionArea.innerHTML = `<span class="tech-unlocked-badge">✓ INVESTIGADO</span>`;
+      } else if (tech.targetLevel === 3 && isAlreadyResearchedInThisBuilding) {
+        actionArea.innerHTML = `<span class="tech-unlocked-badge">✓ 1 PERMISO DADO</span>`;
+      } else if (tech.targetLevel === 3 && hasGivenLv3Permit) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-research-tech';
+        btn.disabled = true;
+        btn.innerHTML = `<span>Permiso ya agotado</span><strong>🔒</strong>`;
+        actionArea.appendChild(btn);
+      } else if (isCurrentlyResearching) {
+        actionArea.innerHTML = `<div class="tech-researching-badge">
+          <span>FORJANDO...</span>
+          <small class="tech-timer-display">${Math.ceil(building.currentResearch!.timer)}s</small>
+        </div>`;
+      } else if (!meetsBuildingLvl) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-research-tech';
+        btn.disabled = true;
+        btn.innerHTML = `<span>Requiere Herrería Nv.2</span><strong>🔒</strong>`;
+        actionArea.appendChild(btn);
+      } else {
+        const btn = document.createElement('button');
+        btn.className = 'btn-research-tech';
+        btn.disabled = building.isUnderConstruction || anyResearching || this.slp < tech.cost;
+        const btnLabel = tech.targetLevel === 3 ? 'Forjar (+1 Permiso)' : 'Investigar';
+        btn.innerHTML = `<span>${btnLabel}</span><strong>${tech.cost} ⚡</strong>`;
+
+        const triggerResearch = (e: Event) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.startTechResearch(building, tech);
+        };
+
+        btn.addEventListener('pointerdown', triggerResearch);
+        btn.addEventListener('click', triggerResearch);
+        actionArea.appendChild(btn);
+      }
+
+      row.appendChild(actionArea);
+      this.researchTechList.appendChild(row);
+    }
+  }
+
+  private startTechResearch(building: BuildingInstance, tech: TechConfig) {
+    if (building.isUnderConstruction || building.currentResearch || building.isUpgrading) {
+      sounds.playError();
+      this.showToast(t('toastTechInProgress'), 'error');
+      return;
+    }
+    if (building.level < (tech.reqBuildingLevel || 1)) {
+      sounds.playError();
+      this.showToast('⚠️ Esta herrería debe ser mejorada a Nivel 2 para forjar esta tecnología.', 'error');
+      return;
+    }
+    if (tech.targetLevel === 2 && this.unlockedTechs.has(tech.id)) {
+      sounds.playError();
+      this.showToast(t('toastTechAlreadyResearched'), 'error');
+      return;
+    }
+    if (tech.targetLevel === 3 && building.researchedTechs?.some(id => TECH_CONFIGS[id]?.targetLevel === 3)) {
+      sounds.playError();
+      this.showToast('⚠️ Esta herrería ya otorgó su único permiso de Nivel 3. Construye y evoluciona otra herrería.', 'error');
+      return;
+    }
+    if (this.slp < tech.cost) {
+      this.triggerSlpError(tech.cost, t(tech.nameKey));
+      return;
+    }
+
+    this.slp -= tech.cost;
+    sounds.playShoot();
+
+    const hasSwift = this.activeRunes.some(r => r.id === 'swift_craft');
+    const duration = hasSwift ? tech.researchTime * 0.55 : tech.researchTime;
+
+    building.currentResearch = {
+      techId: tech.id,
+      timer: duration,
+      duration: duration
+    };
+
+    if (building.progressBarGroup && building.progressBarFill) {
+      building.progressBarGroup.visible = true;
+      (building.progressBarFill.material as THREE.MeshBasicMaterial).color.setHex(0xa855f7); // Purple for research
+      building.progressBarFill.scale.set(0.01, 1, 1);
+    }
+
+    this.updateHUD();
+    this.renderResearchTechList(building);
+    this.updateBuildingInspectorState();
+  }
+
+  private updateInspectorState() {
+    if (!this.inspectedTower) return;
+    const tower = this.inspectedTower;
+    const config = TOWER_CONFIGS[tower.type];
+
+    if (this.inspectorResearchSection) this.inspectorResearchSection.classList.add('hidden');
+    if (this.inspectorTargetingSection) this.inspectorTargetingSection.style.display = 'block';
+
+    const reqTechId = `tech_${tower.type}_${tower.level + 1}`;
+    const hasRequiredTech = tower.level === 1 
+      ? this.unlockedTechs.has(reqTechId)
+      : (this.lv3Tokens[tower.type] > 0);
+
+    if (tower.isUnderConstruction) {
+      this.inspectLevelTag.textContent = t('inspectUnderConstruction', { sec: Math.ceil(tower.constructionTimer) });
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = t('inspectBuildingBtn');
+      if (this.towerTechLockNotice) this.towerTechLockNotice.classList.add('hidden');
+    } else if (tower.isUpgrading) {
+      this.inspectLevelTag.textContent = t('inspectUpgrading', { level: tower.targetLevel });
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = t('inspectUpgradingBtn', { sec: Math.ceil(tower.upgradeTimer) });
+      if (this.towerTechLockNotice) this.towerTechLockNotice.classList.add('hidden');
+    } else {
+      this.inspectLevelTag.textContent = t('inspectLevel', { level: tower.level });
+      // Upgrade Cost
+      const currentUpCost = config.upgradeCost * tower.level;
+      if (tower.level >= 3) {
+        this.upgradeCostText.textContent = t('inspectMaxLevel');
+        this.upgradeTowerBtn.disabled = true;
+        if (this.towerTechLockNotice) this.towerTechLockNotice.classList.add('hidden');
+      } else if (!hasRequiredTech) {
+        // Tech locked!
+        this.upgradeCostText.textContent = '🔒 BLOQUEADO';
+        this.upgradeTowerBtn.disabled = true;
+        if (this.towerTechLockNotice) {
+          this.towerTechLockNotice.textContent = tower.level === 2
+            ? t('techLockNoticeLv3')
+            : t('techLockNotice');
+          this.towerTechLockNotice.classList.remove('hidden');
+        }
+      } else {
+        const tokenBadge = (tower.level === 2 && this.lv3Tokens[tower.type] > 0) ? ` (1 Permiso)` : '';
+        this.upgradeCostText.textContent = `${currentUpCost} ⚡${tokenBadge}`;
+        this.upgradeTowerBtn.disabled = this.slp < currentUpCost;
+        if (this.towerTechLockNotice) this.towerTechLockNotice.classList.add('hidden');
+      }
+    }
+
+    // Sell Refund (+70% of total invested)
+    const invested = config.cost + (tower.level - 1) * config.upgradeCost;
+    const refund = Math.round(invested * 0.7);
+    this.sellRefundText.textContent = `+${refund} ⚡`;
+    this.sellTowerBtn.disabled = false;
+  }
+
+  private updateBuildingInspectorState() {
+    if (!this.inspectedBuilding) return;
+    const b = this.inspectedBuilding;
+    const config = BUILDING_CONFIGS[b.type];
+
+    if (b.isUnderConstruction) {
+      this.inspectLevelTag.textContent = t('inspectUnderConstruction', { sec: Math.ceil(b.constructionTimer) });
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = t('inspectBuildingBtn');
+    } else if (b.isUpgrading) {
+      this.inspectLevelTag.textContent = t('inspectUpgrading', { level: 2 });
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = t('inspectUpgradingBtn', { sec: Math.ceil(b.upgradeTimer || 0) });
+    } else if (b.currentResearch) {
+      this.inspectLevelTag.textContent = `🔬 ${t('hummerHutName')}`;
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = `FORJANDO (${Math.ceil(b.currentResearch.timer)}s)`;
+    } else if (b.type === 'hummer_hut' && b.level === 1) {
+      const upCost = config.upgradeCost || 160;
+      this.inspectLevelTag.textContent = '🏠 Nivel 1';
+      this.upgradeCostText.textContent = `${upCost} ⚡`;
+      this.upgradeTowerBtn.disabled = this.slp < upCost;
+    } else if (b.type === 'hummer_hut' && b.level >= 2) {
+      this.inspectLevelTag.textContent = '🌟 Nivel 2 (Élite)';
+      this.upgradeCostText.textContent = t('inspectMaxLevel');
+      this.upgradeTowerBtn.disabled = true;
+    } else {
+      this.inspectLevelTag.textContent = '🏠 ' + t('classHomeland');
+      this.upgradeTowerBtn.disabled = true;
+      this.upgradeCostText.textContent = 'ACTIVO';
+    }
+
+    if (b.type === 'hummer_hut') {
+      if (b.currentResearch) {
+        const timerSmall = this.researchTechList.querySelector('.tech-timer-display');
+        if (timerSmall) {
+          timerSmall.textContent = `${Math.ceil(b.currentResearch.timer)}s`;
+        }
+      }
+    }
+
+    const refund = Math.round(config.cost * 0.7);
+    this.sellRefundText.textContent = `+${refund} ⚡`;
+
+    // Only allow selling if removing this hut won't put currentPopulation > maxPopulation - 2
+    const canSell = (this.maxPopulation - b.populationBonus) >= this.currentPopulation;
+    this.sellTowerBtn.disabled = !canSell;
+  }
+
   private closeInspector() {
     this.inspectedTower = null;
+    this.inspectedBuilding = null;
     this.inspectorModal.classList.add('hidden');
     this.arena.hideRangeIndicator();
   }
 
+  private upgradeSelectedBuilding(b: BuildingInstance) {
+    if (b.isUnderConstruction || b.isUpgrading || b.currentResearch) return;
+    if (b.type !== 'hummer_hut' || b.level >= 2) return;
+
+    const config = BUILDING_CONFIGS[b.type];
+    const cost = config.upgradeCost || 160;
+
+    if (this.slp < cost) {
+      this.triggerSlpError(cost, `la mejora de ${config.name}`);
+      return;
+    }
+
+    this.slp -= cost;
+
+    const hasSwift = this.activeRunes.some(r => r.id === 'swift_craft');
+    const baseDuration = config.upgradeTime || 6.0;
+    const duration = hasSwift ? baseDuration * 0.55 : baseDuration;
+
+    b.isUpgrading = true;
+    b.upgradeTimer = duration;
+    b.upgradeDuration = duration;
+
+    // Show gold progress bar
+    if (b.progressBarGroup && b.progressBarFill) {
+      (b.progressBarFill.material as THREE.MeshBasicMaterial).color.setHex(0xffb703);
+      b.progressBarFill.scale.set(0.01, 1, 1);
+      b.progressBarGroup.visible = true;
+    }
+
+    sounds.playShoot();
+    this.updateHUD();
+    this.openBuildingInspector(b);
+  }
+
   private upgradeSelectedTower() {
+    if (this.inspectedBuilding) {
+      this.upgradeSelectedBuilding(this.inspectedBuilding);
+      return;
+    }
     if (!this.inspectedTower || this.inspectedTower.level >= 3) return;
     const tower = this.inspectedTower;
     if (tower.isUnderConstruction || tower.isUpgrading) return;
+
+    // Verify technology unlock requirement
+    if (tower.level === 1) {
+      const reqTechId = `tech_${tower.type}_2`;
+      if (!this.unlockedTechs.has(reqTechId)) {
+        sounds.playError();
+        this.showToast(t('techLockNotice'), 'error');
+        return;
+      }
+    } else if (tower.level === 2) {
+      if (this.lv3Tokens[tower.type] <= 0) {
+        sounds.playError();
+        this.showToast(t('techLockNoticeLv3'), 'error');
+        return;
+      }
+    }
 
     const config = TOWER_CONFIGS[tower.type];
     const cost = config.upgradeCost * tower.level;
@@ -900,6 +2789,11 @@ class TowerDefenseGame {
     }
 
     this.slp -= cost;
+
+    // Consume 1 token if upgrading to level 3
+    if (tower.level === 2) {
+      this.lv3Tokens[tower.type] = Math.max(0, this.lv3Tokens[tower.type] - 1);
+    }
 
     // Cooldown duration for upgrade: Level 2 = 3.5s, Level 3 = 5.5s
     const hasSwift = this.activeRunes.some(r => r.id === 'swift_craft');
@@ -955,6 +2849,37 @@ class TowerDefenseGame {
     badge.style.top = `${y}px`;
   }
 
+  private createOrUpdateBuildingStatusBadge(building: BuildingInstance, text: string, timer: number, progress: number) {
+    let badge = building.statusBadgeEl;
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = `tower-status-badge building`;
+      badge.innerHTML = `
+        <div class="badge-header">
+          <span class="badge-label">${text}</span>
+          <span class="badge-timer">${Math.max(0, timer).toFixed(1)}s</span>
+        </div>
+        <div class="badge-bar-track">
+          <div class="badge-bar-fill" style="width: ${(progress * 100).toFixed(0)}%;"></div>
+        </div>
+      `;
+      const canvasWrap = document.querySelector('#canvas-wrap') as HTMLElement;
+      canvasWrap.appendChild(badge);
+      building.statusBadgeEl = badge;
+    } else {
+      const label = badge.querySelector('.badge-label') as HTMLElement;
+      if (label && label.textContent !== text) label.textContent = text;
+      const timerEl = badge.querySelector('.badge-timer') as HTMLElement;
+      if (timerEl) timerEl.textContent = `${Math.max(0, timer).toFixed(1)}s`;
+      const fill = badge.querySelector('.badge-bar-fill') as HTMLElement;
+      if (fill) fill.style.width = `${Math.min(100, Math.max(0, progress * 100)).toFixed(0)}%`;
+    }
+
+    const { x, y } = this.arena.projectToScreen(building.position, 2.7);
+    badge.style.left = `${x}px`;
+    badge.style.top = `${y}px`;
+  }
+
   private removeStatusBadge(tower: TowerInstance) {
     if (tower.statusBadgeEl) {
       tower.statusBadgeEl.remove();
@@ -962,7 +2887,39 @@ class TowerDefenseGame {
     }
   }
 
+  private removeBuildingStatusBadge(building: BuildingInstance) {
+    if (building.statusBadgeEl) {
+      building.statusBadgeEl.remove();
+      building.statusBadgeEl = undefined;
+    }
+  }
+
   private sellSelectedTower() {
+    if (this.inspectedBuilding) {
+      const b = this.inspectedBuilding;
+      // Check if selling would violate population constraint
+      if ((this.maxPopulation - b.populationBonus) < this.currentPopulation) {
+        sounds.playError();
+        this.showToast(t('toastCantSellHut'), 'error');
+        return;
+      }
+
+      const config = BUILDING_CONFIGS[b.type];
+      const refund = Math.round(config.cost * 0.7);
+      this.slp += refund;
+      this.maxPopulation -= b.populationBonus;
+
+      sounds.playGem();
+      this.arena.gridSystem.freeTower(b.id);
+      this.removeBuildingStatusBadge(b);
+      this.arena.scene.remove(b.mesh);
+      this.buildings = this.buildings.filter(item => item.id !== b.id);
+
+      this.closeInspector();
+      this.updateHUD();
+      return;
+    }
+
     if (!this.inspectedTower) return;
     const tower = this.inspectedTower;
     const config = TOWER_CONFIGS[tower.type];
@@ -970,13 +2927,14 @@ class TowerDefenseGame {
     const invested = config.cost + (tower.level - 1) * config.upgradeCost;
     const refund = Math.round(invested * 0.7);
     this.slp += refund;
+    this.currentPopulation = Math.max(0, this.currentPopulation - 1); // Free 1 population
 
     sounds.playGem();
 
+    this.arena.gridSystem.freeTower(tower.id);
     this.removeStatusBadge(tower);
     this.arena.scene.remove(tower.mesh);
     this.towers = this.towers.filter(t => t.id !== tower.id);
-    this.recalculateSynergies();
 
     this.closeInspector();
     this.updateHUD();
@@ -1041,7 +2999,8 @@ class TowerDefenseGame {
 
   private spawnEnemy(type: EnemyType) {
     const config = ENEMY_CONFIGS[type] || ENEMY_CONFIGS.scout;
-    const { mesh, mixer, healthBarFill, healthBarGroup } = this.arena.createEnemyMesh(config.modelFile, config.scale, config.colorFilter, type);
+    const axieImgUrl = config.axieImageUrl || (config.axieId ? `https://axiecdn.axieinfinity.com/axies/${config.axieId}/axie/axie-full-transparent.png` : undefined);
+    const { mesh, mixer, healthBarFill, healthBarGroup, axieSpriteMesh } = this.arena.createEnemyMesh(config.modelFile, config.scale, config.colorFilter, type, axieImgUrl);
 
     const startPos = this.arena.pathSystem.getPositionAtDistance(0).position;
     mesh.position.copy(startPos);
@@ -1067,6 +3026,8 @@ class TowerDefenseGame {
       poisonDmg: 0,
       healthBarFill,
       healthBarGroup,
+      axieSpriteMesh,
+      animTime: 0,
       isImmuneSlow: config.isImmuneSlow,
       isImmunePoison: config.isImmunePoison,
       armorReduction: config.armorReduction,
@@ -1079,16 +3040,21 @@ class TowerDefenseGame {
   }
 
   private loop() {
-    // If game has not been started from welcome screen, only render the 3D scene (no game/timer progression)
+    const now = performance.now();
+    const rawDelta = Math.min((now - this.lastTime) / 1000, 0.05);
+    this.lastTime = now;
+
+    // Update smooth camera transitions if any
+    this.arena.updateCameraTransition(rawDelta);
+
+    // If game has not been started from welcome screen, orbit cinematic camera & render
     if (!this.isGameStarted) {
+      this.arena.updateTitleCamera(rawDelta);
       this.arena.renderer.render(this.arena.scene, this.arena.camera);
       return;
     }
 
-    const now = performance.now();
-    const rawDelta = Math.min((now - this.lastTime) / 1000, 0.05);
-    this.lastTime = now;
-    const delta = rawDelta * this.gameSpeed;
+    const delta = this.isAnyModalOpen() ? 0 : rawDelta * this.gameSpeed;
 
     // 0. Intermission Auto-Wave Countdown
     if (this.isIntermission && !this.isDraftingRune) {
@@ -1113,30 +3079,31 @@ class TowerDefenseGame {
       this.updateHUD();
     }
 
-    // 1b. Update Tower Card Cooldowns
-    const towerTypes: TowerType[] = ['pomodoro', 'kotaro', 'bing', 'tripp'];
-    for (const type of towerTypes) {
+    // 1b. Update Tower & Building Card Cooldowns
+    const allCards = document.querySelectorAll('.tower-card');
+    allCards.forEach(card => {
+      const towerType = card.getAttribute('data-tower') as TowerType | null;
+      const buildingType = card.getAttribute('data-building') as BuildingType | null;
+      const type = (towerType || buildingType)!;
+
       if (this.cardCooldowns[type] > 0) {
         this.cardCooldowns[type] = Math.max(0, this.cardCooldowns[type] - delta);
-        const card = document.querySelector(`.tower-card[data-tower="${type}"]`) as HTMLElement;
-        if (card) {
-          if (this.cardCooldowns[type] > 0) {
-            card.classList.add('cooldown');
-            let overlay = card.querySelector('.tower-card-cooldown-overlay') as HTMLElement;
-            if (!overlay) {
-              overlay = document.createElement('div');
-              overlay.className = 'tower-card-cooldown-overlay';
-              card.appendChild(overlay);
-            }
-            overlay.textContent = `${Math.ceil(this.cardCooldowns[type])}s`;
-          } else {
-            card.classList.remove('cooldown');
-            const overlay = card.querySelector('.tower-card-cooldown-overlay');
-            if (overlay) overlay.remove();
+        if (this.cardCooldowns[type] > 0) {
+          card.classList.add('cooldown');
+          let overlay = card.querySelector('.tower-card-cooldown-overlay') as HTMLElement;
+          if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'tower-card-cooldown-overlay';
+            card.appendChild(overlay);
           }
+          overlay.textContent = `${Math.ceil(this.cardCooldowns[type])}s`;
+        } else {
+          card.classList.remove('cooldown');
+          const overlay = card.querySelector('.tower-card-cooldown-overlay');
+          if (overlay) overlay.remove();
         }
       }
-    }
+    });
 
     // 2. Wave Spawning
     if (this.isWaveRunning) {
@@ -1207,13 +3174,48 @@ class TowerDefenseGame {
       const { position, tangent } = this.arena.pathSystem.getPositionAtDistance(e.pathDistance);
       e.position.copy(position);
       e.mesh.position.copy(position);
-      e.mesh.rotation.y = Math.atan2(tangent.x, tangent.z);
+
+      // Smooth orientation along path (eliminate sudden snapping or oscillating yaw)
+      const targetYaw = Math.atan2(tangent.x, tangent.z);
+      if (e.facingYaw === undefined) {
+        e.facingYaw = targetYaw;
+      } else {
+        let diff = targetYaw - e.facingYaw;
+        // Normalize angle difference to [-PI, PI]
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        e.facingYaw += diff * Math.min(1.0, delta * 12.0);
+      }
+      e.mesh.rotation.y = e.facingYaw;
 
       if (e.mixer) e.mixer.update(delta);
 
-      // Billboard Overhead 3D Health Bar to Camera
+      // Compute relative orientation to face the camera
       this._tempEnemyQuat.copy(e.mesh.quaternion).invert().multiply(this.arena.camera.quaternion);
       e.healthBarGroup.quaternion.copy(this._tempEnemyQuat);
+
+      // Axie 2.5D Sprite Billboard & Running Animation
+      if (e.axieSpriteMesh) {
+        e.animTime = (e.animTime || 0) + delta * currentSpeed * 2.8;
+        e.axieSpriteMesh.quaternion.copy(this._tempEnemyQuat);
+
+        // Direction flip with hysteresis to avoid flickering/dancing when moving nearly vertically
+        if (e.facingFlip === undefined) e.facingFlip = 1;
+        if (tangent.x < -0.22) {
+          e.facingFlip = -1; // Heading clearly West
+        } else if (tangent.x > 0.22) {
+          e.facingFlip = 1;  // Heading clearly East
+        }
+        // If moving purely North/South (|tangent.x| <= 0.22), retain current flip direction!
+
+        // Running bounce (bobbing) and gentle tilt
+        const bounce = Math.abs(Math.sin(e.animTime * 3.2)) * 0.18;
+        const tilt = Math.sin(e.animTime * 3.2) * 0.08;
+
+        e.axieSpriteMesh.position.y = bounce;
+        e.axieSpriteMesh.rotation.z = tilt;
+        e.axieSpriteMesh.scale.x = e.facingFlip;
+      }
 
       // Update Overhead 3D Health Bar with Dynamic Color
       const hpRatio = Math.max(0, e.hp / e.maxHp);
@@ -1283,6 +3285,119 @@ class TowerDefenseGame {
       }
     }
 
+    // 3c. Update Homeland Buildings Construction & Research
+    for (const b of this.buildings) {
+      if (b.isUnderConstruction) {
+        b.constructionTimer -= delta;
+        const progress = Math.min(1.0, Math.max(0.01, 1 - (b.constructionTimer / b.constructionDuration)));
+        const badgeLabel = b.type === 'hummer_hut' ? '⚒️ CONSTRUYENDO HERRERÍA' : '🛖 CONSTRUYENDO CABAÑA';
+
+        this.createOrUpdateBuildingStatusBadge(b, badgeLabel, b.constructionTimer, progress);
+
+        if (b.progressBarGroup && b.progressBarFill) {
+          b.progressBarGroup.quaternion.copy(this.arena.camera.quaternion);
+          b.progressBarFill.scale.set(progress, 1, 1);
+        }
+
+        if (this.inspectedBuilding?.id === b.id) {
+          this.updateBuildingInspectorState();
+        }
+
+        if (b.constructionTimer <= 0) {
+          b.isUnderConstruction = false;
+          this.removeBuildingStatusBadge(b);
+          if (b.progressBarGroup) b.progressBarGroup.visible = false;
+          if (b.populationBonus > 0) {
+            this.maxPopulation += b.populationBonus; // +2 Max Population applied for Hemp Hut!
+            sounds.playLevelUp();
+            this.showToast(`✨ ¡Cabaña completada! Población máxima: +${b.populationBonus} (Tope: ${this.maxPopulation})`, 'info');
+          } else {
+            sounds.playLevelUp();
+            this.showToast(`⚒️ ¡Herrería completada! Ya puedes investigar tecnologías de torres.`, 'info');
+          }
+          this.updateHUD();
+          if (this.inspectedBuilding?.id === b.id) this.openBuildingInspector(b);
+        }
+      } else if (b.isUpgrading) {
+        // Hummer Hut Upgrade in Progress (Lv1 -> Lv2)
+        b.upgradeTimer = (b.upgradeTimer || 0) - delta;
+        const progress = Math.min(1.0, Math.max(0.01, 1 - (b.upgradeTimer / (b.upgradeDuration || 6.0))));
+
+        this.createOrUpdateBuildingStatusBadge(b, '⚒️ MEJORANDO HERRERÍA A NV.2', b.upgradeTimer, progress);
+
+        if (b.progressBarGroup && b.progressBarFill) {
+          b.progressBarGroup.quaternion.copy(this.arena.camera.quaternion);
+          b.progressBarFill.scale.set(progress, 1, 1);
+        }
+
+        if (this.inspectedBuilding?.id === b.id) {
+          this.updateBuildingInspectorState();
+        }
+
+        if (b.upgradeTimer <= 0) {
+          b.isUpgrading = false;
+          b.level = 2;
+          this.removeBuildingStatusBadge(b);
+          if (b.progressBarGroup) b.progressBarGroup.visible = false;
+
+          // Update 3D Sprite to Hummer Hut Level 2 / hummer_hut_3.jpg
+          this.arena.updateBuildingSprite(b.mesh, b.type, 2);
+
+          sounds.playLevelUp();
+          this.showToast(t('toastBuildingUpgraded', { name: BUILDING_CONFIGS[b.type].name, lvl: 2 }), 'info');
+
+          this.updateHUD();
+          if (this.inspectedBuilding?.id === b.id) this.openBuildingInspector(b);
+        }
+      } else if (b.currentResearch) {
+        // Research in Progress
+        b.currentResearch.timer -= delta;
+        const progress = Math.min(1.0, Math.max(0.01, 1 - (b.currentResearch.timer / b.currentResearch.duration)));
+        const tech = TECH_CONFIGS[b.currentResearch.techId];
+        const techName = tech ? t(tech.nameKey) : 'TECNOLOGÍA';
+
+        this.createOrUpdateBuildingStatusBadge(b, `🔬 FORJANDO ${techName.toUpperCase()}`, b.currentResearch.timer, progress);
+
+        if (b.progressBarGroup && b.progressBarFill) {
+          b.progressBarGroup.quaternion.copy(this.arena.camera.quaternion);
+          b.progressBarFill.scale.set(progress, 1, 1);
+        }
+
+        if (this.inspectedBuilding?.id === b.id) {
+          this.updateBuildingInspectorState();
+        }
+
+        if (b.currentResearch.timer <= 0) {
+          const finishedTechId = b.currentResearch.techId;
+          b.currentResearch = undefined;
+          this.removeBuildingStatusBadge(b);
+          if (b.progressBarGroup) b.progressBarGroup.visible = false;
+
+          if (!b.researchedTechs) b.researchedTechs = [];
+          if (!b.researchedTechs.includes(finishedTechId)) {
+            b.researchedTechs.push(finishedTechId);
+          }
+
+          if (tech && tech.targetLevel === 3) {
+            // Grants 1 token/permit for this specific tower type
+            this.lv3Tokens[tech.towerType] = (this.lv3Tokens[tech.towerType] || 0) + 1;
+            sounds.playLevelUp();
+            const towerName = TOWER_CONFIGS[tech.towerType].name;
+            this.showToast(t('toastTechUnlockedLv3', { name: techName, target: towerName }), 'info');
+          } else {
+            this.unlockedTechs.add(finishedTechId);
+            sounds.playLevelUp();
+            const targetName = tech ? TOWER_CONFIGS[tech.towerType].name : 'torre';
+            this.showToast(t('toastTechUnlocked', { name: techName, target: targetName, lvl: tech?.targetLevel || 2 }), 'info');
+          }
+
+          this.updateHUD();
+          if (this.inspectedBuilding?.id === b.id) this.openBuildingInspector(b);
+          if (this.inspectedTower) this.updateInspectorState();
+        }
+      }
+    }
+
     // 4. Update Towers Targeting & Firing
     for (const t of this.towers) {
       // A. Construction Progress
@@ -1300,9 +3415,7 @@ class TowerDefenseGame {
         }
 
         if (this.inspectedTower?.id === t.id) {
-          this.inspectLevelTag.textContent = `En Construcción... (${Math.ceil(t.constructionTimer)}s)`;
-          this.upgradeTowerBtn.disabled = true;
-          this.upgradeCostText.textContent = 'CONSTRUYENDO...';
+          this.updateInspectorState();
         }
 
         if (t.constructionTimer <= 0) {
@@ -1330,9 +3443,7 @@ class TowerDefenseGame {
         }
 
         if (this.inspectedTower?.id === t.id) {
-          this.inspectLevelTag.textContent = `Mejorando a Nivel ${t.targetLevel}...`;
-          this.upgradeCostText.textContent = `MEJORANDO... (${Math.ceil(t.upgradeTimer)}s)`;
-          this.upgradeTowerBtn.disabled = true;
+          this.updateInspectorState();
         }
 
         if (t.upgradeTimer <= 0) {
@@ -1347,7 +3458,12 @@ class TowerDefenseGame {
           // Replace mesh with upgraded visuals & aura
           const config = TOWER_CONFIGS[t.type];
           this.arena.scene.remove(t.mesh);
-          const { mesh, mixer } = this.arena.createTowerMesh(config.modelFile, t.level);
+          const { mesh, mixer, billboardMesh, hologramGroup } = this.arena.createTowerMesh(
+            config.modelFile,
+            t.level,
+            t.customAxie,
+            t.visualMode || 'billboard_25d'
+          );
           mesh.position.copy(t.position);
 
           // Re-attach progress bar
@@ -1355,8 +3471,8 @@ class TowerDefenseGame {
           mesh.add(pbGroup);
           t.mesh = mesh;
           t.mixer = mixer;
-          t.progressBarGroup = pbGroup;
-          t.progressBarFill = pbFill;
+          t.billboardMesh = billboardMesh;
+          t.hologramGroup = hologramGroup;
           this.arena.scene.add(mesh);
 
           sounds.playLevelUp();
@@ -1368,14 +3484,28 @@ class TowerDefenseGame {
       // C. Active Combat targeting and firing
       if (t.mixer) t.mixer.update(delta);
 
+      // Procedural animations for custom Axies (breathing, recoil, hologram rotation)
+      if (t.billboardMesh) {
+        let bounce = 0;
+        if (t.attackAnimTimer && t.attackAnimTimer > 0) {
+          t.attackAnimTimer -= delta;
+          bounce = Math.sin((t.attackAnimTimer / 0.25) * Math.PI) * 0.35;
+        }
+        const breath = Math.sin(performance.now() * 0.003 + (t.spotId || 0) * 1.5) * 0.05;
+        t.billboardMesh.position.y = 0.35 + breath + bounce;
+      }
+      if (t.hologramGroup) {
+        t.hologramGroup.rotation.y += delta * 1.2;
+        t.hologramGroup.position.y = 2.3 + Math.sin(performance.now() * 0.003) * 0.06;
+      }
+
       t.attackTimer += delta;
 
       // Apply Hawkeye rune: +20% range
       const hasHawkeye = this.activeRunes.some(r => r.id === 'hawkeye_rune');
       const effRange = hasHawkeye ? t.range * 1.20 : t.range;
 
-      // Apply Full Lunacia synergy: +15% attack speed
-      const effAttackSpeed = this.activeSynergies.fullLunacia ? t.attackSpeed * 1.15 : t.attackSpeed;
+      const effAttackSpeed = t.attackSpeed;
 
       // Find best target based on tower.targetingMode
       let bestTarget: TDEnemy | null = null;
@@ -1466,6 +3596,7 @@ class TowerDefenseGame {
 
   private fireProjectile(tower: TowerInstance, target: TDEnemy) {
     sounds.playShoot();
+    tower.attackAnimTimer = 0.25;
 
     // Ultimate Charge Accumulation for Level 3 Towers
     if (tower.level >= 3) {
@@ -1548,23 +3679,7 @@ class TowerDefenseGame {
       this.triggerChainLightning(p.targetLastPos, 3, 65);
     }
 
-    // Synergy: Beast + Bird (Caza Coordinada: Kotaro Crit triggers free shot from highest-level Tripp)
-    if (this.activeSynergies.beastBird && p.type === 'kotaro' && p.isCrit) {
-      const bestTripp = this.towers
-        .filter(t => t.type === 'tripp' && !t.isUnderConstruction && !t.isUpgrading)
-        .sort((a, b) => b.level - a.level)[0];
-
-      if (bestTripp) {
-        const targetToShoot = directTarget || this.enemies[0];
-        if (targetToShoot) {
-          this.fireProjectile(bestTripp, targetToShoot);
-        }
-      }
-    }
-
     if (p.isSplash) {
-      let triggeredBloom = false;
-
       // Splash damage & Slow in area
       for (const enemy of this.enemies) {
         if (enemy.position.distanceTo(p.targetLastPos) <= p.splashRadius) {
@@ -1575,12 +3690,6 @@ class TowerDefenseGame {
           }
 
           enemy.hp -= dealtDmg;
-
-          // Synergy: Plant + Aqua (Floración Venenosa: splash on poisoned enemy spawns ground hazard)
-          if (this.activeSynergies.plantAqua && enemy.poisonTimer > 0 && !triggeredBloom) {
-            triggeredBloom = true;
-            this.spawnGroundHazard(p.targetLastPos.clone(), 3.0, 5.0, 22);
-          }
 
           // Rune: Frost Amulet (30% chance to freeze completely for 1.0s)
           if (hasFrost && !enemy.isImmuneSlow && Math.random() < 0.30) {
@@ -1751,43 +3860,15 @@ class TowerDefenseGame {
     this.groundHazards.push(hazard);
   }
 
-  private recalculateSynergies() {
-    const hasPlant = this.towers.some(t => t.type === 'pomodoro');
-    const hasAqua = this.towers.some(t => t.type === 'bing');
-    const hasBeast = this.towers.some(t => t.type === 'kotaro');
-    const hasBird = this.towers.some(t => t.type === 'tripp');
-
-    this.activeSynergies.plantAqua = hasPlant && hasAqua;
-    this.activeSynergies.beastBird = hasBeast && hasBird;
-    this.activeSynergies.fullLunacia = hasPlant && hasAqua && hasBeast && hasBird;
-
-    const badges: string[] = [];
-    if (this.activeSynergies.fullLunacia) {
-      badges.push('🌟 Lunacia (+15% Vel)');
-    }
-    if (this.activeSynergies.plantAqua) {
-      badges.push('🌿💧 Floración Venenosa');
-    }
-    if (this.activeSynergies.beastBird) {
-      badges.push('🐾⚡ Caza Coordinada');
-    }
-
-    if (badges.length > 0) {
-      this.synergyPill.classList.remove('hidden');
-      this.synergyLabel.textContent = badges.join(' | ');
-    } else {
-      this.synergyPill.classList.add('hidden');
-      this.synergyLabel.textContent = '';
-    }
-  }
-
   private renderRuneChips() {
     this.activeRunesContainer.innerHTML = '';
     for (const rune of this.activeRunes) {
       const chip = document.createElement('div');
       chip.className = `rune-chip ${rune.rarity}`;
-      chip.title = `${rune.name}: ${rune.description}`;
-      chip.innerHTML = `${rune.icon} <span>${rune.name}</span>`;
+      const name = t(`rune_${rune.id}_name`);
+      const desc = t(`rune_${rune.id}_desc`);
+      chip.title = `${name}: ${desc}`;
+      chip.innerHTML = `${rune.icon} <span>${name}</span>`;
       this.activeRunesContainer.appendChild(chip);
     }
   }
@@ -1804,12 +3885,19 @@ class TowerDefenseGame {
     draftChoices.forEach(rune => {
       const card = document.createElement('div');
       card.className = `rune-card ${rune.rarity}`;
+      const name = rune.name;
+      const desc = rune.description;
+      const classKey = rune.classReq === 'plant' ? 'classPlant' :
+                       rune.classReq === 'beast' ? 'classBeast' :
+                       rune.classReq === 'aqua' ? 'classAqua' :
+                       rune.classReq === 'bird' ? 'classBird' : '';
+      const typeLabel = classKey ? t(classKey) : 'Universal';
       card.innerHTML = `
         <div class="rune-card-rarity">${rune.rarity.toUpperCase()}</div>
         <div class="rune-card-icon">${rune.icon}</div>
-        <div class="rune-card-name">${rune.name}</div>
-        <div class="rune-card-desc">${rune.description}</div>
-        <div class="rune-card-type">${rune.classReq ? `Clase: ${rune.classReq}` : 'Universal'}</div>
+        <div class="rune-card-name">${name}</div>
+        <div class="rune-card-desc">${desc}</div>
+        <div class="rune-card-type">${typeLabel}</div>
       `;
       card.addEventListener('click', () => {
         this.selectRune(rune);
@@ -1823,7 +3911,7 @@ class TowerDefenseGame {
   private selectRune(rune: RuneConfig) {
     this.activeRunes.push(rune);
     if (rune.id === 'ancient_bulwark') {
-      this.lives = Math.min(26, this.lives + 6);
+      this.lives = Math.min(16, this.lives + 6);
       this.updateHUD();
     }
     this.renderRuneChips();
@@ -1844,11 +3932,6 @@ class TowerDefenseGame {
 
     this.currentWaveIndex++;
 
-    // Check for Roguelite Rune Draft after Wave 3 (index 3) and Wave 7 (index 7)
-    if (this.currentWaveIndex === 3 || this.currentWaveIndex === 7) {
-      this.openRuneDraft();
-    }
-
     // Start countdown to next wave automatically!
     this.isIntermission = true;
     this.intermissionTimer = this.betweenWaveIntermission;
@@ -1858,25 +3941,29 @@ class TowerDefenseGame {
   }
 
   private handleGameOver(isVictory: boolean) {
-    sounds.stopMusic();
+    if (sounds.getMusicVolume() > 0) {
+      sounds.playTitleMusic(true);
+    } else {
+      sounds.stopMusic();
+    }
     this.resultScreen.classList.remove('hidden');
 
     if (isVictory) {
       sounds.playLevelUp();
-      this.resultBadge.textContent = '¡VICTORIA ABSOLUTA!';
+      this.resultBadge.textContent = t('resultVictoryBadge');
       this.resultBadge.style.color = 'var(--accent-gold)';
-      this.resultTitle.textContent = '¡Lunacia Está a Salvo!';
-      this.resultSubtitle.textContent = 'Has defendido el Árbol Ancestral derrotando a las 10 oleadas de Quimeras.';
+      this.resultTitle.textContent = t('resultVictoryTitle');
+      this.resultSubtitle.textContent = t('resultVictorySubtitle');
     } else {
       sounds.playGameOver();
-      this.resultBadge.textContent = 'DERROTA';
+      this.resultBadge.textContent = t('resultDefeatBadge');
       this.resultBadge.style.color = 'var(--accent-beast)';
-      this.resultTitle.textContent = 'El Árbol Ancestral ha Caído';
-      this.resultSubtitle.textContent = `Las quimeras lograron atravesar tus defensas en la Oleada ${this.currentWaveIndex + 1}.`;
+      this.resultTitle.textContent = t('resultDefeatTitle');
+      this.resultSubtitle.textContent = t('resultDefeatSubtitle', { wave: this.currentWaveIndex + 1 });
     }
 
     this.finalWave.textContent = `${this.currentWaveIndex + 1} / ${TD_WAVES.length}`;
-    this.finalLives.textContent = `${this.lives} / 20`;
+    this.finalLives.textContent = `${this.lives} / 10`;
   }
 }
 

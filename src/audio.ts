@@ -1,8 +1,38 @@
+export type MusicTrack = 'title' | 'battle';
+
 class SoundManager {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
-  private musicInterval: number | null = null;
-  private beatStep: number = 0;
+  private isMusicMuted: boolean = false;
+  private isSfxMuted: boolean = false;
+  private musicVolume: number = 0.7;
+  private sfxVolume: number = 0.8;
+
+  // Dual-Track Audio Elements
+  private titleAudio: HTMLAudioElement | null = null;
+  private battleAudio: HTMLAudioElement | null = null;
+  private currentTrack: MusicTrack = 'title';
+  private isMusicPlaying: boolean = false;
+
+  private titleTrackPath: string = '/assets/audio/bgm.mp3';
+  private battleTrackPath: string = '/assets/audio/game_song.mp3';
+
+  constructor() {
+    try {
+      const savedMusic = localStorage.getItem('axie_music_vol');
+      if (savedMusic !== null) {
+        this.musicVolume = parseFloat(savedMusic);
+        this.isMusicMuted = this.musicVolume <= 0;
+      }
+      const savedSfx = localStorage.getItem('axie_sfx_vol');
+      if (savedSfx !== null) {
+        this.sfxVolume = parseFloat(savedSfx);
+        this.isSfxMuted = this.sfxVolume <= 0;
+      }
+    } catch {
+      // Ignore localStorage errors in sandboxed contexts
+    }
+  }
 
   private initContext() {
     if (!this.ctx) {
@@ -14,8 +44,52 @@ class SoundManager {
     }
   }
 
+  public setMusicVolume(val: number) {
+    this.musicVolume = Math.max(0, Math.min(1, val));
+    this.isMusicMuted = this.musicVolume <= 0;
+    const vol = (this.isMuted || this.isMusicMuted) ? 0 : this.musicVolume;
+    if (this.titleAudio) this.titleAudio.volume = vol;
+    if (this.battleAudio) this.battleAudio.volume = vol;
+    try {
+      localStorage.setItem('axie_music_vol', this.musicVolume.toString());
+    } catch {}
+  }
+
+  public setSfxVolume(val: number) {
+    this.sfxVolume = Math.max(0, Math.min(1, val));
+    this.isSfxMuted = this.sfxVolume <= 0;
+    try {
+      localStorage.setItem('axie_sfx_vol', this.sfxVolume.toString());
+    } catch {}
+  }
+
+  public getMusicVolume(): number {
+    return this.musicVolume;
+  }
+
+  public getSfxVolume(): number {
+    return this.sfxVolume;
+  }
+
+  public toggleSfx(enable?: boolean): boolean {
+    if (enable !== undefined) {
+      this.isSfxMuted = !enable;
+    } else {
+      this.isSfxMuted = !this.isSfxMuted;
+    }
+    return !this.isSfxMuted;
+  }
+
+  public isSfxActive(): boolean {
+    return !this.isSfxMuted && this.sfxVolume > 0 && !this.isMuted;
+  }
+
+  public isMusicActive(): boolean {
+    return !this.isMusicMuted && this.musicVolume > 0 && !this.isMuted && this.isMusicRunning();
+  }
+
   public playShoot() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -27,8 +101,8 @@ class SoundManager {
     osc.frequency.setValueAtTime(520, now);
     osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
 
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+    gain.gain.setValueAtTime(0.15 * this.sfxVolume, now);
+    gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, now + 0.12);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
@@ -38,7 +112,7 @@ class SoundManager {
   }
 
   public playHit() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -50,8 +124,8 @@ class SoundManager {
     osc.frequency.setValueAtTime(180, now);
     osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
 
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+    gain.gain.setValueAtTime(0.2 * this.sfxVolume, now);
+    gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, now + 0.08);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
@@ -61,7 +135,7 @@ class SoundManager {
   }
 
   public playGem() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -75,8 +149,8 @@ class SoundManager {
     osc.frequency.setValueAtTime(f, now);
     osc.frequency.exponentialRampToValueAtTime(f * 1.25, now + 0.08);
 
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+    gain.gain.setValueAtTime(0.12 * this.sfxVolume, now);
+    gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, now + 0.08);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
@@ -86,7 +160,7 @@ class SoundManager {
   }
 
   public playLevelUp() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -100,8 +174,8 @@ class SoundManager {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, time);
 
-      gain.gain.setValueAtTime(0.2, time);
-      gain.gain.linearRampToValueAtTime(0.01, time + 0.25);
+      gain.gain.setValueAtTime(0.2 * this.sfxVolume, time);
+      gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, time + 0.25);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -112,7 +186,7 @@ class SoundManager {
   }
 
   public playPlayerHurt() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -124,8 +198,8 @@ class SoundManager {
     osc.frequency.setValueAtTime(140, now);
     osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
 
-    gain.gain.setValueAtTime(0.25, now);
-    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+    gain.gain.setValueAtTime(0.25 * this.sfxVolume, now);
+    gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, now + 0.15);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
@@ -135,7 +209,7 @@ class SoundManager {
   }
 
   public playGameOver() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -149,8 +223,8 @@ class SoundManager {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(freq, time);
 
-      gain.gain.setValueAtTime(0.22, time);
-      gain.gain.linearRampToValueAtTime(0.01, time + 0.35);
+      gain.gain.setValueAtTime(0.22 * this.sfxVolume, time);
+      gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, time + 0.35);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -161,7 +235,7 @@ class SoundManager {
   }
 
   public playError() {
-    if (this.isMuted) return;
+    if (this.isMuted || this.isSfxMuted || this.sfxVolume <= 0) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -173,8 +247,8 @@ class SoundManager {
     osc.frequency.setValueAtTime(160, now);
     osc.frequency.linearRampToValueAtTime(80, now + 0.18);
 
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+    gain.gain.setValueAtTime(0.18 * this.sfxVolume, now);
+    gain.gain.linearRampToValueAtTime(0.01 * this.sfxVolume, now + 0.18);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
@@ -184,72 +258,117 @@ class SoundManager {
   }
 
   public isMusicRunning(): boolean {
-    return this.musicInterval !== null;
+    return this.isMusicPlaying || (this.titleAudio !== null && !this.titleAudio.paused) || (this.battleAudio !== null && !this.battleAudio.paused);
+  }
+
+  public getCurrentTrack(): MusicTrack {
+    return this.currentTrack;
   }
 
   public toggleMusic(): boolean {
-    if (this.musicInterval !== null) {
+    if (this.isMusicRunning()) {
       this.stopMusic();
       return false;
     } else {
-      this.startMusic();
+      if (this.currentTrack === 'battle') {
+        this.playBattleMusic();
+      } else {
+        this.playTitleMusic();
+      }
       return true;
     }
   }
 
-  public startMusic() {
+  public playTitleMusic(resetTime: boolean = true) {
     this.initContext();
-    if (this.musicInterval !== null) return;
+    this.currentTrack = 'title';
 
-    // Harmonic melody & bassline loop (Axie Fantasy Adventure)
-    const bassline = [110, 110, 130.81, 146.83, 110, 98, 130.81, 164.81];
-    const melody = [440, 523.25, 659.25, 523.25, 392, 523.25, 587.33, 659.25];
+    // Stop battle music
+    if (this.battleAudio) {
+      this.battleAudio.pause();
+      this.battleAudio.currentTime = 0;
+    }
 
-    this.musicInterval = window.setInterval(() => {
-      if (this.isMuted || !this.ctx) return;
-      const now = this.ctx.currentTime;
-      const step = this.beatStep % bassline.length;
-      this.beatStep++;
+    if (this.isMusicMuted || this.isMuted || this.musicVolume <= 0) {
+      this.isMusicPlaying = false;
+      return;
+    }
 
-      // Bass note
-      const bassFreq = bassline[step];
-      const bassOsc = this.ctx.createOscillator();
-      const bassGain = this.ctx.createGain();
-      bassOsc.type = 'triangle';
-      bassOsc.frequency.setValueAtTime(bassFreq, now);
+    if (!this.titleAudio) {
+      this.titleAudio = new Audio(this.titleTrackPath);
+      this.titleAudio.loop = true;
+    }
 
-      bassGain.gain.setValueAtTime(0.06, now);
-      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+    if (resetTime) {
+      this.titleAudio.currentTime = 0;
+    }
 
-      bassOsc.connect(bassGain);
-      bassGain.connect(this.ctx.destination);
+    this.titleAudio.volume = this.musicVolume;
+    const playPromise = this.titleAudio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          this.isMusicPlaying = true;
+        })
+        .catch(() => {
+          this.isMusicPlaying = false;
+        });
+    }
+  }
 
-      bassOsc.start(now);
-      bassOsc.stop(now + 0.26);
+  public playBattleMusic(resetTime: boolean = true) {
+    this.initContext();
+    this.currentTrack = 'battle';
 
-      // Soft arpeggio melody note
-      const melFreq = melody[step];
-      const melOsc = this.ctx.createOscillator();
-      const melGain = this.ctx.createGain();
-      melOsc.type = 'sine';
-      melOsc.frequency.setValueAtTime(melFreq, now);
+    // Stop title music
+    if (this.titleAudio) {
+      this.titleAudio.pause();
+      this.titleAudio.currentTime = 0;
+    }
 
-      melGain.gain.setValueAtTime(0.035, now);
-      melGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    if (this.isMusicMuted || this.isMuted || this.musicVolume <= 0) {
+      this.isMusicPlaying = false;
+      return;
+    }
 
-      melOsc.connect(melGain);
-      melGain.connect(this.ctx.destination);
+    if (!this.battleAudio) {
+      this.battleAudio = new Audio(this.battleTrackPath);
+      this.battleAudio.loop = true;
+    }
 
-      melOsc.start(now);
-      melOsc.stop(now + 0.22);
-    }, 260);
+    if (resetTime) {
+      this.battleAudio.currentTime = 0;
+    }
+
+    this.battleAudio.volume = this.musicVolume;
+    const playPromise = this.battleAudio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          this.isMusicPlaying = true;
+        })
+        .catch(() => {
+          this.isMusicPlaying = false;
+        });
+    }
+  }
+
+  public startMusic(resetTime: boolean = true) {
+    if (this.currentTrack === 'battle') {
+      this.playBattleMusic(resetTime);
+    } else {
+      this.playTitleMusic(resetTime);
+    }
   }
 
   public stopMusic() {
-    if (this.musicInterval !== null) {
-      clearInterval(this.musicInterval);
-      this.musicInterval = null;
+    if (this.titleAudio) {
+      this.titleAudio.pause();
     }
+    if (this.battleAudio) {
+      this.battleAudio.pause();
+    }
+    this.isMusicPlaying = false;
   }
 }
 

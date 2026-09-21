@@ -13,47 +13,72 @@
     <div id="canvas-wrap"></div>
 
     <!-- Tower Defense HUD Overlay -->
-    <div id="td-ui">
-      <!-- Top Bar: Wave, Lives, SLP, Speed, Wave Trigger -->
+    <div id="td-ui" class="hidden">
+      <!-- Top Bar: Wave, Lives, SLP, Speed, Surrender, Wave Trigger -->
       <header class="top-hud-bar">
-        <div class="hud-pill wave-pill">
-          <span class="pill-title">OLEADA</span>
-          <span id="wave-display" class="pill-value">1 / 10</span>
+        <!-- Left: Oleada, Vidas, Tropas -->
+        <div class="hud-group hud-group-left">
+          <div class="hud-pill wave-pill" title="Progreso de Oleadas">
+            <span class="pill-icon wave-icon-shield">🛡️</span>
+            <div class="pill-data wave-pill-data">
+              <span class="pill-label" data-i18n="wave">OLEADA</span>
+              <span id="wave-display" class="pill-value">1 / 10</span>
+            </div>
+          </div>
+
+          <div class="hud-pill lives-pill" title="Puntos de Vida del Árbol Sagrado">
+            <span class="pill-icon">❤️</span>
+            <div class="pill-data">
+              <span class="pill-label" data-i18n="lives">VIDAS</span>
+              <span id="lives-display" class="pill-value">10</span>
+            </div>
+          </div>
+
+          <div class="hud-pill pop-pill" id="pop-pill" title="Población de Guardianes Axie (Suministro)">
+            <span class="pill-icon">🏠</span>
+            <div class="pill-data">
+              <span class="pill-label">TROPAS</span>
+              <span id="pop-display" class="pill-value">0 / 3</span>
+            </div>
+          </div>
         </div>
 
-        <div class="hud-pill lives-pill">
-          <span class="pill-icon">❤️</span>
-          <span id="lives-display" class="pill-value">20</span>
+        <!-- Center: Energía (SLP) & Runes -->
+        <div class="hud-group hud-group-center">
+          <div class="hud-pill slp-pill" title="Pociones Suaves de Amor (Energía para desplegar y mejorar)">
+            <span class="pill-icon">⚡</span>
+            <div class="pill-data">
+              <span class="pill-label">ENERGÍA</span>
+              <span id="slp-display" class="pill-value">250 SLP</span>
+            </div>
+          </div>
+          <div id="active-runes-container" class="active-runes-container"></div>
         </div>
 
-        <div class="hud-pill slp-pill">
-          <span class="pill-icon">⚡</span>
-          <span id="slp-display" class="pill-value">250 SLP</span>
-        </div>
-
-        <div id="synergy-pill" class="hud-pill synergy-pill hidden">
-          <span class="pill-icon">🌟</span>
-          <span id="synergy-label" class="pill-value">Sinergia</span>
-        </div>
-
-        <div id="active-runes-container" class="active-runes-container"></div>
-
-        <div class="hud-controls-group">
-          <button id="tutorial-hud-btn" class="btn-hud-action" title="Ver Tutorial">❓ Tutorial</button>
-          <button id="music-btn" class="btn-hud-action" title="Música On/Off">🎵</button>
-          <button id="speed-btn" class="btn-hud-action">⏩ x1</button>
-          <button id="start-wave-btn" class="btn-start-wave">⚔️ ¡INICIAR OLEADA!</button>
+        <!-- Right Area: Epic Wave Action Button -->
+        <div class="hud-group hud-group-right">
+          <button id="start-wave-btn" class="btn-start-wave" data-i18n="startWaveReady">
+            <span class="wave-btn-main">⚔️ ¡INICIAR OLEADA!</span>
+          </button>
         </div>
       </header>
+
+      <!-- Pinned Top-Right Corner: Game Control Strip -->
+      <aside class="top-corner-controls">
+        <button id="speed-btn" class="btn-hud-action btn-speed" title="Velocidad del juego">⏩ x1</button>
+        <button id="music-btn" class="btn-hud-action btn-icon-only" title="Música On/Off" data-i18n-title="musicBtnTitle">🎵</button>
+        <button id="settings-hud-btn" class="btn-hud-action btn-icon-only" title="Configuración" data-i18n-title="settingsBtnTitle">⚙️</button>
+        <button id="surrender-hud-btn" class="btn-hud-action btn-surrender" title="Rendirse y salir al inicio" data-i18n-title="surrenderTooltip">🏳️</button>
+      </aside>
 
       <!-- Floating Notification Toast -->
       <div id="td-toast" class="td-toast hidden"></div>
 
       <!-- Active Emergency Spell Button (Floating Right) -->
       <div class="spell-container">
-        <button id="spell-btn" class="btn-spell" title="Lanza una lluvia de espinas destructiva en cualquier punto del camino">
+        <button id="spell-btn" class="btn-spell" title="Lanza una lluvia de espinas destructiva en cualquier punto del camino" data-i18n-title="spellTooltip">
           <span class="spell-icon">☄️</span>
-          <span class="spell-label">Lluvia de Espinas</span>
+          <span class="spell-label" data-i18n="spellName">Lluvia de Espinas</span>
           <div id="spell-cooldown-overlay" class="spell-cooldown-overlay hidden"></div>
         </button>
       </div>
@@ -71,46 +96,69 @@
 
         <div class="inspector-stats">
           <div class="inspect-stat-row">
-            <span>Daño por Disparo:</span>
+            <span data-i18n="inspectDmgLabel">Daño por Disparo:</span>
             <strong id="inspect-dmg">20</strong>
           </div>
           <div class="inspect-stat-row">
-            <span>Alcance de Visión:</span>
+            <span data-i18n="inspectRangeLabel">Alcance de Visión:</span>
             <strong id="inspect-range">6.8</strong>
           </div>
           <div class="inspect-stat-row">
-            <span>Velocidad de Ataque:</span>
+            <span data-i18n="inspectSpeedLabel">Velocidad de Ataque:</span>
             <strong id="inspect-speed">1.8/s</strong>
           </div>
           <div class="inspect-trait" id="inspect-trait">🌿 Fuego Rápido</div>
+          <div id="inspect-nft-box" class="inspect-nft-box hidden">
+            <div class="nft-badge-row">
+              <span class="nft-tag">NFT REAL</span>
+              <span id="inspect-nft-id" class="nft-id-tag">#482910</span>
+              <span id="inspect-nft-synergy" class="nft-synergy-tag">+15% Daño</span>
+            </div>
+            <a id="inspect-marketplace-link" href="#" target="_blank" class="btn-marketplace-link" title="Ver este Axie en el Marketplace de Sky Mavis">🔗 Ver en App Axie Marketplace ↗</a>
+          </div>
         </div>
 
-        <div class="inspector-section-label">🎯 Prioridad de Disparo:</div>
-        <div class="targeting-buttons-row">
-          <button class="btn-target-mode active" data-mode="first" title="Dispara a la quimera más adelantada">🏁 Primero</button>
-          <button class="btn-target-mode" data-mode="strongest" title="Prioriza al enemigo con más vida">💪 Fuerte</button>
-          <button class="btn-target-mode" data-mode="weakest" title="Remata a los enemigos con menos vida">🩸 Débil</button>
-          <button class="btn-target-mode" data-mode="fastest" title="Prioriza a los veloces en sprint">⚡ Rápido</button>
+        <div id="inspector-targeting-section">
+          <div class="inspector-section-label" data-i18n="inspectPriorityLabel">🎯 Prioridad de Disparo:</div>
+          <div class="targeting-buttons-row">
+            <button class="btn-target-mode active" data-mode="first" title="Dispara a la quimera más adelantada" data-i18n-title="targetFirstTitle" data-i18n="targetFirst">🏁 Primero</button>
+            <button class="btn-target-mode" data-mode="strongest" title="Prioriza al enemigo con más vida" data-i18n-title="targetStrongestTitle" data-i18n="targetStrongest">💪 Fuerte</button>
+            <button class="btn-target-mode" data-mode="weakest" title="Remata a los enemigos con menos vida" data-i18n-title="targetWeakestTitle" data-i18n="targetWeakest">🩸 Débil</button>
+            <button class="btn-target-mode" data-mode="fastest" title="Prioriza a los veloces en sprint" data-i18n-title="targetFastestTitle" data-i18n="targetFastest">⚡ Rápido</button>
+          </div>
         </div>
 
         <div id="ultimate-status-box" class="ultimate-status-box hidden">
           <div class="ultimate-header">
-            <span class="ultimate-title">💥 Definitiva Nv.3:</span>
+            <span class="ultimate-title" data-i18n="ultimateLvl3">💥 Definitiva Nv.3:</span>
             <span id="ultimate-charge-text" class="ultimate-charge">0 / 5</span>
           </div>
           <div class="ultimate-track">
             <div id="ultimate-fill" class="ultimate-fill" style="width: 0%;"></div>
           </div>
-          <div id="ultimate-desc" class="ultimate-desc">Cargando ataque especial...</div>
+          <div id="ultimate-desc" class="ultimate-desc" data-i18n="ultCharging">Cargando ataque especial...</div>
+        </div>
+
+        <!-- Hummer Hut Research Panel (visible only when inspecting hummer_hut) -->
+        <div id="inspector-research-section" class="inspector-research-section hidden">
+          <div class="inspector-section-label">🔬 Tecnologías de Torres:</div>
+          <div id="research-tech-list" class="research-tech-list">
+            <!-- Dynamic tech items injected via JS -->
+          </div>
+        </div>
+
+        <!-- Lock Warning Notice for Towers needing Blacksmith research -->
+        <div id="tower-tech-lock-notice" class="tower-tech-lock-notice hidden">
+          <span>🔒 Requiere investigar tecnología en la <strong>Herrería</strong></span>
         </div>
 
         <div class="inspector-actions">
           <button id="upgrade-tower-btn" class="btn-upgrade">
-            <span>Mejorar</span>
+            <span data-i18n="btnUpgrade">Mejorar</span>
             <strong id="upgrade-cost-text">90 ⚡</strong>
           </button>
           <button id="sell-tower-btn" class="btn-sell">
-            <span>Vender</span>
+            <span data-i18n="btnSell">Vender</span>
             <strong id="sell-refund-text">+70 ⚡</strong>
           </button>
         </div>
@@ -118,7 +166,7 @@
 
       <!-- Bottom Tower Placement Tray -->
       <footer class="bottom-tower-tray">
-        <div class="tray-instructions">
+        <div class="tray-instructions" data-i18n-html="trayInstruction">
           🌱 Elige un Axie y haz clic en el césped para colocarlo. Pulsa <strong>[ESC]</strong> o <strong>Clic Derecho</strong> para cancelar.
         </div>
 
@@ -126,58 +174,1002 @@
           <!-- Pomodoro -->
           <div class="tower-card" data-tower="pomodoro">
             <div class="card-cost">100 ⚡</div>
-            <div class="card-avatar">🍅</div>
+            <div class="card-avatar"><img src="./assets/mascots/pomodoro_avatar.png" class="tower-card-thumb-img" alt="Pomodoro" /></div>
             <div class="card-name">Pomodoro</div>
-            <div class="card-class class-plant">Planta</div>
-            <div class="card-role">Rápido & Veneno</div>
+            <div class="card-role" data-i18n="pomodoroRole">Rápido & Veneno</div>
           </div>
 
           <!-- Kotaro -->
           <div class="tower-card" data-tower="kotaro">
             <div class="card-cost">150 ⚡</div>
-            <div class="card-avatar">🦊</div>
+            <div class="card-avatar"><img src="./assets/mascots/kotaro_avatar.png" class="tower-card-thumb-img" alt="Kotaro" /></div>
             <div class="card-name">Kotaro</div>
-            <div class="card-class class-beast">Bestia</div>
-            <div class="card-role">Crítico & Anti-Tanque</div>
+            <div class="card-role" data-i18n="kotaroRole">Crítico & Anti-Tanque</div>
           </div>
 
           <!-- Bing -->
           <div class="tower-card" data-tower="bing">
             <div class="card-cost">175 ⚡</div>
-            <div class="card-avatar">🌊</div>
+            <div class="card-avatar"><img src="./assets/mascots/bing_avatar.png" class="tower-card-thumb-img" alt="Bing" /></div>
             <div class="card-name">Bing</div>
-            <div class="card-class class-aqua">Aqua</div>
-            <div class="card-role">Splash & Ralentiza</div>
+            <div class="card-role" data-i18n="bingRole">Splash & Ralentiza</div>
           </div>
 
           <!-- Tripp -->
           <div class="tower-card" data-tower="tripp">
             <div class="card-cost">200 ⚡</div>
-            <div class="card-avatar">🪶</div>
+            <div class="card-avatar"><img src="./assets/mascots/tripp_avatar.png" class="tower-card-thumb-img" alt="Tripp" /></div>
             <div class="card-name">Tripp</div>
-            <div class="card-class class-bird">Pájaro</div>
-            <div class="card-role">Francotirador</div>
+            <div class="card-role" data-i18n="trippRole">Francotirador</div>
+          </div>
+
+          <!-- Structure: Hemp Hut -->
+          <div class="tower-card building-card" data-building="hemp_hut" title="Cabaña de Cáñamo (+2 Población)">
+            <div class="card-cost">75 ⚡</div>
+            <div class="card-avatar"><img src="./assets/homeland/hemp_hut.webp" alt="Hemp Hut" class="building-card-thumb" /></div>
+            <div class="card-name" data-i18n="hempHutName">Cabaña Cáñamo</div>
+            <div class="card-role highlight-pop" data-i18n="hempHutRole">+2 Población</div>
+          </div>
+
+          <!-- Structure: Hummer Hut (Herrería) -->
+          <div class="tower-card building-card hummer-card" data-building="hummer_hut" title="Herrería (Investigación Tecnológica)">
+            <div class="card-cost">120 ⚡</div>
+            <div class="card-avatar"><img src="./assets/homeland_all/buildings/hummer_hut_2.jpg" alt="Hummer Hut" class="building-card-thumb" /></div>
+            <div class="card-name" data-i18n="hummerHutName">Herrería</div>
+            <div class="card-role highlight-tech" data-i18n="hummerHutRole">🔬 Tecnología</div>
           </div>
         </div>
       </footer>
     </div>
 
-    <!-- Start / Welcome Screen -->
-    <div id="start-screen" class="screen-overlay">
-      <div class="screen-card start-card-clean">
-        <div class="game-badge">AXIE VIBEATHON 2026</div>
-        <div class="mascots-row">🍅 🦊 🌊 🪶</div>
-        <h1 class="title">AXIE DEFENSE</h1>
-        <p class="subtitle">Battle for Lunacia 🏰</p>
-        <p class="description start-desc">
-          ¡Las quimeras malignas avanzan hacia el <strong>Árbol Ancestral</strong>! Coloca a tus Axies estratégicamente por el césped, usa sus sinergias mágicas y sobrevive a las 10 oleadas invasoras.
-        </p>
+    <!-- 1. Pure Title / Cover Screen (Portada Cinemática) -->
+    <div id="start-screen" class="portal-cover-screen">
+      <!-- Minimalist Top Bar -->
+      <header class="portal-top-bar">
+        <div class="portal-badge" data-i18n="gameBadge">AXIE VIBEATHON 2026 • SKY MAVIS</div>
+      </header>
 
-        <div class="start-actions-row">
-          <button id="start-tutorial-btn" class="btn-primary btn-tutorial">🎓 CÓMO JUGAR (TUTORIAL)</button>
-          <button id="start-play-btn" class="btn-secondary btn-direct-play">⚔️ JUGAR DIRECTAMENTE</button>
+      <!-- Bottom Enter Prompt Area -->
+      <footer class="portal-bottom-area">
+        <button id="enter-portal-btn" class="btn-play-hero btn-enter-title" data-i18n="enterLunaciaBtn">
+          ✨ ENTRAR A LUNACIA ✨
+        </button>
+        <p class="play-hero-sub" data-i18n="enterLunaciaSub">
+          Toca la pantalla o presiona cualquier tecla para continuar
+        </p>
+      </footer>
+    </div>
+
+    <!-- Transition FX Overlays -->
+    <div id="transition-overlay-container" class="transition-overlay-container">
+      <div id="fade-black-overlay" class="fade-black-overlay hidden"></div>
+      
+      <!-- Refined Ancestral Lunacia Vault Gates (Cortina Rúnica) -->
+      <div id="rune-curtain-overlay" class="rune-curtain-overlay hidden">
+        <div class="curtain-rail curtain-rail-top"></div>
+        <div class="curtain-rail curtain-rail-bottom"></div>
+
+        <!-- Left Heavy Obsidian Gate -->
+        <div class="curtain-door curtain-left">
+          <div class="curtain-plate-bevel"></div>
+          <div class="curtain-conduit-v"></div>
+          <div class="curtain-energy-border"></div>
         </div>
-        <div class="credits-tag">Creado con cariño para el evento oficial Sky Mavis Axie Vibeathon</div>
+
+        <!-- Right Heavy Obsidian Gate -->
+        <div class="curtain-door curtain-right">
+          <div class="curtain-plate-bevel"></div>
+          <div class="curtain-conduit-v"></div>
+          <div class="curtain-energy-border"></div>
+        </div>
+
+        <!-- Radiant Light Beam flooding through gap upon unlocking -->
+        <div class="curtain-light-shaft"></div>
+
+        <!-- Central Ancestral Lunacia Royal Crest -->
+        <div id="curtain-central-seal" class="curtain-central-seal">
+          <svg viewBox="0 0 160 160" class="seal-svg" width="160" height="160">
+            <defs>
+              <linearGradient id="sealGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffe66d" />
+                <stop offset="40%" stop-color="#ffb703" />
+                <stop offset="100%" stop-color="#fb8500" />
+              </linearGradient>
+              <radialGradient id="sealCoreGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.95" />
+                <stop offset="45%" stop-color="#0284c7" stop-opacity="0.95" />
+                <stop offset="100%" stop-color="#060e1d" stop-opacity="0.98" />
+              </radialGradient>
+              <filter id="sealGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            <circle cx="80" cy="80" r="74" fill="#070d1a" stroke="url(#sealGoldGrad)" stroke-width="3.5" filter="url(#sealGlow)" />
+            <circle cx="80" cy="80" r="65" fill="none" stroke="rgba(0, 240, 255, 0.7)" stroke-width="1.8" stroke-dasharray="7 4" class="seal-svg-ring" />
+            <circle cx="80" cy="80" r="52" fill="url(#sealCoreGrad)" stroke="url(#sealGoldGrad)" stroke-width="2.5" />
+            <!-- Ancestral Crown -->
+            <path d="M 60 84 L 52 64 L 66 70 L 80 50 L 94 70 L 108 64 L 100 84 Z" fill="url(#sealGoldGrad)" stroke="#fff" stroke-width="0.8" />
+            <!-- Floating Mystic SLP / Ronin Crystal -->
+            <polygon points="80,62 90,75 80,90 70,75" fill="#00f0ff" stroke="#fff" stroke-width="1.2" />
+            <circle cx="80" cy="75" r="2.8" fill="#ffffff" />
+            <!-- Cardinal Rune Accents -->
+            <circle cx="80" cy="16" r="3.5" fill="#ffb703" />
+            <circle cx="80" cy="144" r="3.5" fill="#ffb703" />
+            <circle cx="16" cy="80" r="3.5" fill="#ffb703" />
+            <circle cx="144" cy="80" r="3.5" fill="#ffb703" />
+          </svg>
+          <div class="seal-caption">LUNACIA</div>
+        </div>
+
+        <!-- Central Seam Light Flare on Impact -->
+        <div class="curtain-seam-impact"></div>
+      </div>
+    </div>
+
+    <!-- 2. Main Menu Hub (Pantalla de Inicio / Command Center) -->
+    <div id="main-menu-hub" class="main-menu-hub hidden">
+      <!-- Ambient Backdrop Scrim for 3D Lunacia View -->
+      <div class="hub-backdrop-scrim"></div>
+
+      <!-- Top Bar: Centered Logo & Badge -->
+      <header class="hub-header">
+        <div class="hub-brand-group">
+          <img src="/assets/axie_defense_logo.png" alt="Axie Defense: Battle for Lunacia" class="hub-logo-img" />
+          <div class="hub-badge" data-i18n="gameBadge">AXIE VIBEATHON 2026 • SKY MAVIS</div>
+        </div>
+      </header>
+
+      <!-- Main Hub Workspace -->
+      <main class="hub-body">
+        <!-- Hero Action Card: Primary Battle Mode -->
+        <section class="hub-hero-card">
+          <div class="hero-card-header">
+            <span class="hero-mode-pill" data-i18n="hubModeBadge">MODO DEFENDER LUNACIA</span>
+            <span class="hero-status-pill">⭐ MODO OFICIAL</span>
+          </div>
+
+          <div class="hero-card-body">
+            <h2 class="hero-mode-heading" data-i18n="hubModeTitle">Defensa del Árbol Ancestral</h2>
+            <p class="hero-mode-description" data-i18n="hubModeDesc">
+              Despliega a tus Axies en las defensas ancestrales, resiste las 20 oleadas de quimeras invasoras y desata poderosas bendiciones rúnicas.
+            </p>
+          </div>
+
+          <div class="hero-card-footer">
+            <button id="hub-play-battle-btn" class="btn-hub-start-battle" data-i18n="hubPlayBtn">
+              ⚔️ INICIAR BATALLA
+            </button>
+            <span class="hero-play-details" data-i18n="hubPlaySub">
+              Dificultad Normal • 20 Oleadas • 100% Gratis
+            </span>
+          </div>
+        </section>
+
+        <!-- Operation Grid: Tutorial, Roster, Codex & Settings -->
+        <nav class="hub-nav-grid">
+          <!-- Tutorial / Cómo Jugar -->
+          <button id="hub-tutorial-btn" class="hub-menu-card hub-card-tutorial">
+            <div class="hub-menu-icon-wrap">❓</div>
+            <div class="hub-menu-text">
+              <h3 class="hub-menu-title" data-i18n="hubTutorialTitle">Cómo Jugar</h3>
+              <p class="hub-menu-desc" data-i18n="hubTutorialDesc">Aprende las mecánicas de juego</p>
+            </div>
+            <span class="hub-menu-arrow">➜</span>
+          </button>
+
+          <!-- Cuartel de Axies (Ronin & NFTs) - En Construcción v1.1 (Deshabilitado) -->
+          <button id="hub-roster-btn" class="hub-menu-card hub-card-roster hub-card-disabled" disabled aria-disabled="true" title="El Cuartel de Axies (Ronin Wallet & NFTs) estará disponible próximamente en la versión 1.1">
+            <div class="hub-menu-icon-wrap hub-icon-disabled">🦊</div>
+            <div class="hub-menu-text">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom: 2px;">
+                <h3 class="hub-menu-title hub-title-disabled" data-i18n="hubRosterTitle">Cuartel de Axies</h3>
+                <span class="badge-coming-soon-lock" data-i18n="hubRosterBadge">🔒 PRÓXIMAMENTE (v1.1)</span>
+              </div>
+              <p class="hub-menu-desc hub-desc-disabled" data-i18n="hubRosterDesc">En desarrollo para v1.1 • Ronin Wallet & NFTs</p>
+            </div>
+            <span class="hub-lock-icon" title="Bloqueado hasta la versión 1.1">🔒</span>
+          </button>
+
+          <!-- Códex & Bestiario -->
+          <button id="hub-codex-btn" class="hub-menu-card hub-card-codex">
+            <div class="hub-menu-icon-wrap">📜</div>
+            <div class="hub-menu-text">
+              <h3 class="hub-menu-title" data-i18n="hubCodexTitle">Códex & Bestiario</h3>
+              <p class="hub-menu-desc" data-i18n="hubCodexDesc">Torres y Quimeras invasoras</p>
+            </div>
+            <span class="hub-menu-arrow">➜</span>
+          </button>
+
+          <!-- Configuración del Sistema -->
+          <button id="hub-system-btn" class="hub-menu-card hub-card-settings">
+            <div class="hub-menu-icon-wrap">⚙️</div>
+            <div class="hub-menu-text">
+              <h3 class="hub-menu-title" data-i18n="hubSettingsTitle">Configuración</h3>
+              <p class="hub-menu-desc" data-i18n="hubSettingsDesc">Sonido, Idioma y Gráficos</p>
+            </div>
+            <span class="hub-menu-arrow">➜</span>
+          </button>
+        </nav>
+      </main>
+
+      <!-- Bottom Credits / Status Bar -->
+      <footer class="hub-footer">
+        <div class="hub-footer-credits">
+          <span>Hecho con ❤️ para el Axie Vibeathon 2026</span>
+          <span class="hub-sep">•</span>
+          <span>Sky Mavis Ecosystem</span>
+        </div>
+        <div class="hub-footer-version">v0.1.0 • WebGL 3D</div>
+      </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="screen-overlay hidden">
+      <div class="screen-card settings-card">
+        <div class="settings-header">
+          <div class="game-badge" data-i18n="settingsBadge">SISTEMA</div>
+          <h2 class="title" data-i18n="settingsTitle">⚙️ Configuración del Juego</h2>
+          <p class="subtitle" data-i18n="settingsSubtitle">Ajusta el sonido, idioma y gráficos a tu gusto.</p>
+          <button id="close-settings-x-btn" class="btn-close">✕</button>
+        </div>
+
+        <div class="settings-body">
+          <!-- Audio Section -->
+          <div class="settings-section">
+            <h3 class="settings-section-title" data-i18n="settingsAudioTitle">🎵 Sonido y Música</h3>
+            
+            <div class="settings-row">
+              <div class="settings-label-group">
+                <span class="settings-label" data-i18n="settingsMusicLabel">Música Ambiental:</span>
+                <span id="music-vol-label" class="settings-val">70%</span>
+              </div>
+              <div class="settings-control-group">
+                <input type="range" id="music-volume-slider" min="0" max="100" value="70" class="settings-slider" />
+                <button id="toggle-music-setting-btn" class="btn-setting-toggle active">ON</button>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-label-group">
+                <span class="settings-label" data-i18n="settingsSfxLabel">Efectos de Sonido (SFX):</span>
+                <span id="sfx-vol-label" class="settings-val">80%</span>
+              </div>
+              <div class="settings-control-group">
+                <input type="range" id="sfx-volume-slider" min="0" max="100" value="80" class="settings-slider" />
+                <button id="toggle-sfx-setting-btn" class="btn-setting-toggle active">ON</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Language Section -->
+          <div class="settings-section">
+            <h3 class="settings-section-title" data-i18n="settingsLangTitle">🌐 Idioma / Language</h3>
+            <div class="lang-buttons-row">
+              <button class="btn-lang active" data-lang="es" type="button" aria-label="Español">
+                <div class="flag-frame">
+                  <svg class="flag-svg" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect width="60" height="40" fill="#c60b1e" />
+                    <rect y="10" width="60" height="20" fill="#ffc400" />
+                    <g transform="translate(18, 20) scale(0.48)">
+                      <rect x="-24" y="-22" width="4" height="42" rx="1" fill="#e2e8f0" />
+                      <rect x="-26" y="-24" width="8" height="3" rx="1" fill="#f59e0b" />
+                      <rect x="-26" y="18" width="8" height="3" rx="1" fill="#f59e0b" />
+                      <path d="M-27,-2 h10 v4 h-10 z" fill="#dc2626" />
+                      <rect x="20" y="-22" width="4" height="42" rx="1" fill="#e2e8f0" />
+                      <rect x="18" y="-24" width="8" height="3" rx="1" fill="#f59e0b" />
+                      <rect x="18" y="18" width="8" height="3" rx="1" fill="#f59e0b" />
+                      <path d="M17,-2 h10 v4 h-10 z" fill="#dc2626" />
+                      <path d="M-15,-20 L-13,-28 L-5,-23 L0,-30 L5,-23 L13,-28 L15,-20 Z" fill="#f59e0b" />
+                      <circle cx="0" cy="-31" r="2.5" fill="#f59e0b" />
+                      <circle cx="-13" cy="-29" r="2" fill="#ef4444" />
+                      <circle cx="13" cy="-29" r="2" fill="#ef4444" />
+                      <path d="M-15,-18 h30 v18 c0,15 -15,22 -15,22 c0,0 -15,-7 -15,-22 Z" fill="#b91c1c" stroke="#f59e0b" stroke-width="2" />
+                      <rect x="-13" y="-16" width="13" height="15" fill="#dc2626" />
+                      <rect x="0" y="-16" width="13" height="15" fill="#fbbf24" />
+                      <rect x="-13" y="-1" width="13" height="15" fill="#fbbf24" />
+                      <rect x="0" y="-1" width="13" height="15" fill="#dc2626" />
+                      <ellipse cx="0" cy="0" rx="3.5" ry="4.5" fill="#1e40af" stroke="#f59e0b" stroke-width="1" />
+                    </g>
+                  </svg>
+                </div>
+                <div class="lang-info">
+                  <span class="lang-name">Español</span>
+                  <span class="lang-sub">Castellano</span>
+                </div>
+                <div class="lang-status-dot" aria-hidden="true"></div>
+              </button>
+              <button class="btn-lang" data-lang="en" type="button" aria-label="English">
+                <div class="flag-frame">
+                  <svg class="flag-svg" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect width="60" height="40" fill="#b22234" />
+                    <rect y="3.08" width="60" height="3.08" fill="#ffffff" />
+                    <rect y="9.23" width="60" height="3.08" fill="#ffffff" />
+                    <rect y="15.38" width="60" height="3.08" fill="#ffffff" />
+                    <rect y="21.54" width="60" height="3.08" fill="#ffffff" />
+                    <rect y="27.69" width="60" height="3.08" fill="#ffffff" />
+                    <rect y="33.85" width="60" height="3.08" fill="#ffffff" />
+                    <rect width="26" height="21.54" fill="#3c3b6e" />
+                    <g fill="#ffffff">
+                      <circle cx="3.5" cy="3.5" r="1.1" />
+                      <circle cx="8" cy="3.5" r="1.1" />
+                      <circle cx="12.5" cy="3.5" r="1.1" />
+                      <circle cx="17" cy="3.5" r="1.1" />
+                      <circle cx="21.5" cy="3.5" r="1.1" />
+                      <circle cx="5.7" cy="7" r="1.1" />
+                      <circle cx="10.2" cy="7" r="1.1" />
+                      <circle cx="14.7" cy="7" r="1.1" />
+                      <circle cx="19.2" cy="7" r="1.1" />
+                      <circle cx="3.5" cy="10.5" r="1.1" />
+                      <circle cx="8" cy="10.5" r="1.1" />
+                      <circle cx="12.5" cy="10.5" r="1.1" />
+                      <circle cx="17" cy="10.5" r="1.1" />
+                      <circle cx="21.5" cy="10.5" r="1.1" />
+                      <circle cx="5.7" cy="14" r="1.1" />
+                      <circle cx="10.2" cy="14" r="1.1" />
+                      <circle cx="14.7" cy="14" r="1.1" />
+                      <circle cx="19.2" cy="14" r="1.1" />
+                      <circle cx="3.5" cy="17.5" r="1.1" />
+                      <circle cx="8" cy="17.5" r="1.1" />
+                      <circle cx="12.5" cy="17.5" r="1.1" />
+                      <circle cx="17" cy="17.5" r="1.1" />
+                      <circle cx="21.5" cy="17.5" r="1.1" />
+                    </g>
+                  </svg>
+                </div>
+                <div class="lang-info">
+                  <span class="lang-name">English</span>
+                  <span class="lang-sub">Global / US</span>
+                </div>
+                <div class="lang-status-dot" aria-hidden="true"></div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Graphics / Performance Section -->
+          <div class="settings-section">
+            <h3 class="settings-section-title" data-i18n="settingsGraphicsTitle">🖥️ Rendimiento y Calidad 3D</h3>
+            <div class="graphics-options-row">
+              <button id="gfx-high-btn" class="btn-gfx-option active" data-i18n="settingsQualityHigh">✨ Alta Calidad</button>
+              <button id="gfx-eco-btn" class="btn-gfx-option" data-i18n="settingsQualityFast">⚡ Modo Fluido</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button id="close-settings-btn" class="btn-primary btn-save-settings" data-i18n="settingsSaveBtn">⚔️ Guardar y Cerrar ✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Codex / Bestiary Modal (Grimorio de Lunacia) -->
+    <div id="codex-modal" class="screen-overlay hidden">
+      <div class="screen-card codex-card">
+        <div class="codex-header">
+          <div class="game-badge">ENCICLOPEDIA OFICIAL • GRIMORIO DE LUNACIA</div>
+          <h2 class="title" data-i18n="codexTitle">📖 Códex &amp; Bestiario de Lunacia</h2>
+          <p class="subtitle" data-i18n="codexSubtitle">Compendio táctico de guardianes, edificaciones ancestrales y monstruos invasores.</p>
+          <button id="close-codex-x-btn" class="btn-close" aria-label="Cerrar Códex">✕</button>
+          <div class="codex-tabs-row">
+            <button class="btn-codex-tab active" data-tab="defenders" data-i18n="codexTabDefenders">🛡️ Defensores <span class="tab-count-pill">4</span></button>
+            <button class="btn-codex-tab" data-tab="structures" data-i18n="codexTabStructures">🛖 Estructuras <span class="tab-count-pill">2</span></button>
+            <button class="btn-codex-tab" data-tab="enemies" data-i18n="codexTabEnemies">👾 Enemigos <span class="tab-count-pill">4</span></button>
+          </div>
+        </div>
+
+        <div class="codex-body">
+          <!-- 1. DEFENDERS TAB (4 Axies) -->
+          <div id="codex-tab-defenders" class="codex-tab-pane active">
+            <div class="codex-grid-4">
+              <!-- Pomodoro -->
+              <div class="codex-col-card plant-border">
+                <div class="col-card-top">
+                  <span class="class-tag class-plant">Planta</span>
+                  <span class="entry-cost-badge">100 ⚡ SLP</span>
+                </div>
+                <div class="col-avatar-wrap plant-aura">
+                  <img src="./assets/mascots/pomodoro_avatar.png" class="codex-avatar-img" alt="Pomodoro" />
+                </div>
+                <h4 class="col-card-title">Pomodoro</h4>
+                <div class="col-card-role">Veneno &amp; Cadencia Rápida</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚔️ Daño</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-dmg" style="width: 40%;"></div></div>
+                    <span class="stat-bar-val">45</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🎯 Rango</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-range" style="width: 68%;"></div></div>
+                    <span class="stat-bar-val">6.8m</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚡ Cadencia</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 90%;"></div></div>
+                    <span class="stat-bar-val">1.8/s</span>
+                  </div>
+                </div>
+
+                <div class="codex-ult-banner">
+                  <strong>💥 Bombardeo Tóxico:</strong> Cada 6 disparos lanza 3 esporas explosivas en área.
+                </div>
+                <div class="codex-evo-box">
+                  <strong>⭐ Nivel 2:</strong> Veneno continuo (12 dmg/s).
+                </div>
+                <div class="codex-tip-box">
+                  💡 <strong>Posición:</strong> Curvas cerradas para acumular veneno continuo.
+                </div>
+              </div>
+
+              <!-- Kotaro -->
+              <div class="codex-col-card beast-border">
+                <div class="col-card-top">
+                  <span class="class-tag class-beast">Bestia</span>
+                  <span class="entry-cost-badge">150 ⚡ SLP</span>
+                </div>
+                <div class="col-avatar-wrap beast-aura">
+                  <img src="./assets/mascots/kotaro_avatar.png" class="codex-avatar-img" alt="Kotaro" />
+                </div>
+                <h4 class="col-card-title">Kotaro</h4>
+                <div class="col-card-role">Crítico Rompe-Blindajes</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚔️ Daño</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-dmg" style="width: 82%;"></div></div>
+                    <span class="stat-bar-val">110</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🎯 Rango</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-range" style="width: 48%;"></div></div>
+                    <span class="stat-bar-val">4.8m</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚡ Cadencia</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 50%;"></div></div>
+                    <span class="stat-bar-val">1.0/s</span>
+                  </div>
+                </div>
+
+                <div class="codex-ult-banner">
+                  <strong>💥 Tajo Giratorio:</strong> Torbellino 360° en 3.5m que destroza armaduras.
+                </div>
+                <div class="codex-evo-box">
+                  <strong>⭐ Nivel 2:</strong> Daño crítico asciende a x3.0.
+                </div>
+                <div class="codex-tip-box">
+                  💡 <strong>Posición:</strong> Cuellos de botella para devastar quimeras blindadas.
+                </div>
+              </div>
+
+              <!-- Bing -->
+              <div class="codex-col-card aqua-border">
+                <div class="col-card-top">
+                  <span class="class-tag class-aqua">Aqua</span>
+                  <span class="entry-cost-badge">175 ⚡ SLP</span>
+                </div>
+                <div class="col-avatar-wrap aqua-aura">
+                  <img src="./assets/mascots/bing_avatar.png" class="codex-avatar-img" alt="Bing" />
+                </div>
+                <h4 class="col-card-title">Bing</h4>
+                <div class="col-card-role">Salpicadura &amp; Ralentización</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚔️ Daño</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-dmg" style="width: 55%;"></div></div>
+                    <span class="stat-bar-val">60</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🎯 Rango</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-range" style="width: 62%;"></div></div>
+                    <span class="stat-bar-val">6.2m</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚡ Cadencia</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 38%;"></div></div>
+                    <span class="stat-bar-val">0.75/s</span>
+                  </div>
+                </div>
+
+                <div class="codex-ult-banner">
+                  <strong>💥 Ola Rompedora:</strong> Maremoto que empuja 2.5m hacia atrás a la horda.
+                </div>
+                <div class="codex-evo-box">
+                  <strong>⭐ Nivel 2:</strong> Radio de salpicadura +40%.
+                </div>
+                <div class="codex-tip-box">
+                  💡 <strong>Posición:</strong> Al inicio del sendero para agrupar bajo fuego cruzado.
+                </div>
+              </div>
+
+              <!-- Tripp -->
+              <div class="codex-col-card bird-border">
+                <div class="col-card-top">
+                  <span class="class-tag class-bird">Pájaro</span>
+                  <span class="entry-cost-badge">200 ⚡ SLP</span>
+                </div>
+                <div class="col-avatar-wrap bird-aura">
+                  <img src="./assets/mascots/tripp_avatar.png" class="codex-avatar-img" alt="Tripp" />
+                </div>
+                <h4 class="col-card-title">Tripp</h4>
+                <div class="col-card-role">Francotirador de Precisión</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚔️ Daño</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-dmg" style="width: 72%;"></div></div>
+                    <span class="stat-bar-val">90</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🎯 Rango</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-range" style="width: 95%;"></div></div>
+                    <span class="stat-bar-val">9.2m</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">⚡ Cadencia</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 43%;"></div></div>
+                    <span class="stat-bar-val">0.85/s</span>
+                  </div>
+                </div>
+
+                <div class="codex-ult-banner">
+                  <strong>💥 Disparo Divino:</strong> Rayo celestial perforante que atraviesa en línea recta.
+                </div>
+                <div class="codex-evo-box">
+                  <strong>⭐ Nivel 2:</strong> Ejecuta al enemigo más cercano al Árbol.
+                </div>
+                <div class="codex-tip-box">
+                  💡 <strong>Posición:</strong> Islas centrales del mapa para dominar ambas mitades.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. STRUCTURES TAB (2 Buildings) -->
+          <div id="codex-tab-structures" class="codex-tab-pane hidden">
+            <div class="codex-grid-2">
+              <!-- Cabaña de Cáñamo -->
+              <div class="codex-struct-card homeland-border">
+                <div class="struct-card-header">
+                  <div class="struct-avatar-wrap building-aura">
+                    <img src="./assets/homeland/hemp_hut.webp" class="codex-avatar-img" alt="Cabaña de Cáñamo" />
+                  </div>
+                  <div class="struct-header-info">
+                    <div class="struct-badges-row">
+                      <span class="class-tag class-homeland">Homeland</span>
+                      <span class="entry-cost-badge">80 ⚡ SLP</span>
+                    </div>
+                    <h4>Cabaña de Cáñamo</h4>
+                    <div class="struct-role-text">Expansión de Población &amp; Logística</div>
+                  </div>
+                </div>
+                <div class="struct-card-body">
+                  <div class="codex-stat-bars">
+                    <div class="stat-bar-row">
+                      <span class="stat-bar-label">🛖 Población</span>
+                      <div class="stat-bar-track"><div class="stat-bar-fill fill-support" style="width: 85%;"></div></div>
+                      <span class="stat-bar-val">+2 Cap</span>
+                    </div>
+                    <div class="stat-bar-row">
+                      <span class="stat-bar-label">⏱️ Constr.</span>
+                      <div class="stat-bar-track"><div class="stat-bar-fill fill-range" style="width: 30%;"></div></div>
+                      <span class="stat-bar-val">3.0s</span>
+                    </div>
+                    <div class="stat-bar-row">
+                      <span class="stat-bar-label">🛡️ Vida</span>
+                      <div class="stat-bar-track"><div class="stat-bar-fill fill-hp" style="width: 60%;"></div></div>
+                      <span class="stat-bar-val">450 HP</span>
+                    </div>
+                  </div>
+
+                  <div class="codex-ult-banner homeland-ult">
+                    <strong>🏠 Logística de Lunacia:</strong> Amplía la reserva de población del campamento en +2 plazas para desplegar más Axies simultáneos en combate sin penalización de costo.
+                  </div>
+                  <div class="codex-evo-box">
+                    <div><strong>⭐ Nivel 2:</strong> Genera un dividendo pasivo de +2 SLP al finalizar cada oleada.</div>
+                    <div><strong>⭐ Nivel 3:</strong> Aura de campamento que otorga +5% de cadencia a torres vecinas.</div>
+                  </div>
+                  <div class="codex-tip-box">
+                    💡 <strong>Consejo Táctico:</strong> Constrúyela en parcelas periféricas o esquinas donde las torres de tiro no tendrían ángulo de disparo.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Herrería de Lunacia -->
+              <div class="codex-struct-card forge-border">
+                <div class="struct-card-header">
+                  <div class="struct-avatar-wrap forge-aura">
+                    <img src="./assets/homeland/hummer_hut_1.webp" class="codex-avatar-img" alt="Herrería de Lunacia" />
+                  </div>
+                  <div class="struct-header-info">
+                    <div class="struct-badges-row">
+                      <span class="class-tag class-forge">Homeland • Forja</span>
+                      <span class="entry-cost-badge">120 ⚡ SLP</span>
+                    </div>
+                    <h4>Herrería de Lunacia</h4>
+                    <div class="struct-role-text">Investigación &amp; Forja de Tecnologías</div>
+                  </div>
+                </div>
+                <div class="struct-card-body">
+                  <div class="codex-stat-bars">
+                    <div class="stat-bar-row">
+                      <span class="stat-bar-label">🔬 Ramas I+D</span>
+                      <div class="stat-bar-track"><div class="stat-bar-fill fill-crit" style="width: 100%;"></div></div>
+                      <span class="stat-bar-val">4 Clases</span>
+                    </div>
+                    <div class="stat-bar-row">
+                      <span class="stat-bar-label">⏱️ Constr.</span>
+                      <div class="stat-bar-track"><div class="stat-bar-fill fill-range" style="width: 45%;"></div></div>
+                      <span class="stat-bar-val">4.5s</span>
+                    </div>
+                    <div class="stat-bar-row">
+                      <span class="stat-bar-label">🛡️ Vida</span>
+                      <div class="stat-bar-track"><div class="stat-bar-fill fill-hp" style="width: 80%;"></div></div>
+                      <span class="stat-bar-val">650 HP</span>
+                    </div>
+                  </div>
+
+                  <div class="codex-ult-banner forge-ult">
+                    <strong>⚒️ Forja Ancestral:</strong> Desarrolla armamento e I+D elemental. Sin la Herrería, las torres de tus Axies no pueden evolucionar a sus formas de Nivel 2 y Nivel 3.
+                  </div>
+                  <div class="codex-evo-box">
+                    <div><strong>⭐ Nivel 1:</strong> Habilita las evoluciones de Nivel 2 para todas las torres del mapa.</div>
+                    <div><strong>⭐ Nivel 2:</strong> Desbloquea definitivas de Nivel 3 y reduce un 15% los costes de I+D.</div>
+                  </div>
+                  <div class="codex-tip-box">
+                    💡 <strong>Consejo Táctico:</strong> Constrúyela temprano (oleadas 3-5) para tener listas las evoluciones antes de las quimeras acorazadas.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. ENEMIES TAB (4 Monsters) -->
+          <div id="codex-tab-enemies" class="codex-tab-pane hidden">
+            <div class="codex-grid-4">
+              <!-- Quimera Scout (Xia) -->
+              <div class="codex-col-card enemy-scout-border">
+                <div class="col-card-top">
+                  <span class="class-tag enemy-scout-tag">Rápida</span>
+                  <span class="entry-reward-badge">💰 +12 SLP</span>
+                </div>
+                <div class="col-avatar-wrap enemy-scout-aura">
+                  <img src="./assets/mascots/xia_avatar.png" class="codex-avatar-img" alt="Quimera Scout" />
+                </div>
+                <h4 class="col-card-title">Quimera Scout</h4>
+                <div class="col-card-role">Enjambre Veloz (Xia)</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">❤️ Vida</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-hp" style="width: 25%;"></div></div>
+                    <span class="stat-bar-val">70-180</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🏃 Velocidad</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 95%;"></div></div>
+                    <span class="stat-bar-val">3.8 m/s</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🛡️ Blindaje</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-armor" style="width: 10%;"></div></div>
+                    <span class="stat-bar-val">0%</span>
+                  </div>
+                </div>
+
+                <div class="codex-trait-banner">
+                  <strong>⚡ Sprint del Abismo:</strong> Acelera +20% si no recibe daño durante 3s.
+                </div>
+                <div class="codex-counter-box">
+                  🎯 <strong>Contraataque:</strong> Fuego rápido de Pomodoro y charco de Bing.
+                </div>
+              </div>
+
+              <!-- Quimera Guerrera (Kibo) -->
+              <div class="codex-col-card enemy-warrior-border">
+                <div class="col-card-top">
+                  <span class="class-tag enemy-warrior-tag">Equilibrada</span>
+                  <span class="entry-reward-badge">💰 +22 SLP</span>
+                </div>
+                <div class="col-avatar-wrap enemy-warrior-aura">
+                  <img src="./assets/mascots/kibo_avatar.png" class="codex-avatar-img" alt="Quimera Guerrera" />
+                </div>
+                <h4 class="col-card-title">Quimera Guerrera</h4>
+                <div class="col-card-role">Vanguardia Sólida (Kibo)</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">❤️ Vida</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-hp" style="width: 52%;"></div></div>
+                    <span class="stat-bar-val">200-550</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🏃 Velocidad</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 55%;"></div></div>
+                    <span class="stat-bar-val">2.3 m/s</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🛡️ Blindaje</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-armor" style="width: 35%;"></div></div>
+                    <span class="stat-bar-val">15%</span>
+                  </div>
+                </div>
+
+                <div class="codex-trait-banner">
+                  <strong>🩸 Tenacidad:</strong> Reduce un 25% la duración de aturdimientos.
+                </div>
+                <div class="codex-counter-box">
+                  🎯 <strong>Contraataque:</strong> Control de Bing con daño concentrado de Kotaro.
+                </div>
+              </div>
+
+              <!-- Quimera Blindada (Paladill) -->
+              <div class="codex-col-card enemy-tank-border">
+                <div class="col-card-top">
+                  <span class="class-tag enemy-tank-tag">Pesada</span>
+                  <span class="entry-reward-badge">💰 +45 SLP</span>
+                </div>
+                <div class="col-avatar-wrap enemy-tank-aura">
+                  <img src="./assets/mascots/paladill_avatar.png" class="codex-avatar-img" alt="Quimera Blindada" />
+                </div>
+                <h4 class="col-card-title">Quimera Blindada</h4>
+                <div class="col-card-role">Tanque Acorazado (Paladill)</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">❤️ Vida</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-hp" style="width: 80%;"></div></div>
+                    <span class="stat-bar-val">600-1400</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🏃 Velocidad</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 30%;"></div></div>
+                    <span class="stat-bar-val">1.5 m/s</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🛡️ Blindaje</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-armor" style="width: 85%;"></div></div>
+                    <span class="stat-bar-val">45%</span>
+                  </div>
+                </div>
+
+                <div class="codex-trait-banner">
+                  <strong>🛡️ Coraza Quititosa:</strong> Reduce 35% el daño de ataques continuos.
+                </div>
+                <div class="codex-counter-box">
+                  🎯 <strong>Contraataque:</strong> Tajos críticos de Kotaro que parten armaduras.
+                </div>
+              </div>
+
+              <!-- Reina Quimera Ancestral -->
+              <div class="codex-col-card boss-border">
+                <div class="col-card-top">
+                  <span class="class-tag boss-tag">JEFE FINAL</span>
+                  <span class="entry-reward-badge boss-slp-reward">🏆 +300 SLP</span>
+                </div>
+                <div class="col-avatar-wrap boss-aura">
+                  <img src="./assets/mascots/kibo_avatar.png" class="codex-avatar-img boss-glow-img" alt="Reina Quimera" />
+                </div>
+                <h4 class="col-card-title">Reina Quimera</h4>
+                <div class="col-card-role">Coloso Supremo (Oleadas 10 &amp; 20)</div>
+                
+                <div class="codex-stat-bars">
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">❤️ Vida</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-hp" style="width: 100%;"></div></div>
+                    <span class="stat-bar-val">3,500+</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🏃 Velocidad</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-spd" style="width: 22%;"></div></div>
+                    <span class="stat-bar-val">1.2 m/s</span>
+                  </div>
+                  <div class="stat-bar-row">
+                    <span class="stat-bar-label">🛡️ Tenacidad</span>
+                    <div class="stat-bar-track"><div class="stat-bar-fill fill-tenacity" style="width: 95%;"></div></div>
+                    <span class="stat-bar-val">Inmune</span>
+                  </div>
+                </div>
+
+                <div class="codex-trait-banner boss-trait">
+                  <strong>👑 Furia del Caos:</strong> Inmune a empujes; convoca escoltas al 50% HP.
+                </div>
+                <div class="codex-counter-box">
+                  🎯 <strong>Contraataque:</strong> Torres Nivel 3, Tripp y Lluvia de Espinas.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="codex-actions">
+          <button id="close-codex-btn" class="btn-primary btn-close-codex" data-i18n="codexCloseBtn">Volver al Menú ✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tactical Guide & How to Play Modal -->
+    <div id="guide-modal" class="screen-overlay hidden">
+      <div class="screen-card guide-card-modal">
+        <div class="settings-header" style="border-bottom: 2px solid rgba(56, 189, 248, 0.35); padding-bottom: 12px;">
+          <div class="game-badge" data-i18n="guideBadge">MANUAL TÁCTICO DE LUNACIA</div>
+          <h2 class="title" data-i18n="guideTitle">📜 Guía Completa de Combate</h2>
+          <p class="subtitle" data-i18n="guideSubtitle">Aprende las mecánicas clave, estructuras de Homeland, defensores y runas místicas.</p>
+          <button id="close-guide-x-btn" class="btn-close">✕</button>
+        </div>
+
+        <!-- Category Tabs Navigation -->
+        <nav class="guide-tabs-nav">
+          <button class="btn-guide-tab active" data-tab="basics" data-i18n="guideTabBasics">🏰 Fundamentos</button>
+          <button class="btn-guide-tab" data-tab="buildings" data-i18n="guideTabBuildings">🛖 Estructuras (Homeland)</button>
+          <button class="btn-guide-tab" data-tab="defenders" data-i18n="guideTabDefenders">🐾 Defensores & Definitivas</button>
+          <button class="btn-guide-tab" data-tab="tactics" data-i18n="guideTabTactics">🔮 Runas & Táctica</button>
+        </nav>
+
+        <!-- Tab 1: Basics -->
+        <div id="guide-tab-basics" class="guide-tab-panel active">
+          <div class="guide-steps-grid">
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">1</span>
+                <h4 data-i18n="guideBasics1Title">1. Objetivo Sagrado</h4>
+              </div>
+              <p data-i18n="guideBasics1Desc">Las quimeras emergen del portal morado y avanzan por el sendero hacia el Árbol Ancestral. Evita a toda costa que lleguen o perderás vidas.</p>
+              <div class="guide-step-tip" data-i18n="guideBasics1Tip">
+                💡 Puedes rotar la cámara con Clic Derecho / WASD y hacer zoom con la rueda.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">2</span>
+                <h4 data-i18n="guideBasics2Title">2. Energía SLP & Recursos</h4>
+              </div>
+              <p data-i18n="guideBasics2Desc">Cada quimera aniquilada otorga SLP. Es la poción mágica indispensable para invocar torres, construir estructuras e investigar tecnologías.</p>
+              <div class="guide-step-tip" data-i18n="guideBasics2Tip">
+                💡 Vende torres o edificios en desuso para recuperar el 70% del SLP invertido.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">3</span>
+                <h4 data-i18n="guideBasics3Title">3. Oleadas y Supervivencia</h4>
+              </div>
+              <p data-i18n="guideBasics3Desc">Resiste todas las oleadas de dificultad creciente. Inicia las oleadas antes de que termine la cuenta regresiva para ganar bonificaciones de SLP.</p>
+              <div class="guide-step-tip" data-i18n="guideBasics3Tip">
+                💡 Ajusta la velocidad del juego a x2 para acelerar el ritmo de batalla.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Buildings (Homeland) -->
+        <div id="guide-tab-buildings" class="guide-tab-panel hidden">
+          <div class="guide-steps-grid">
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🛖</span>
+                <h4 data-i18n="guideBuild1Title">🛖 Cabaña de Cáñamo (+2 Población)</h4>
+              </div>
+              <p data-i18n="guideBuild1Desc">Empiezas la partida con espacio para solo 3 defensores (🏠 3/3 de población). ¡Construye cabañas sobre el césped para aumentar tu capacidad en +2 de población y poder desplegar más torres!</p>
+              <div class="guide-step-tip" data-i18n="guideBuild1Tip">
+                💡 ¡Sin cabañas no podrás colocar más de 3 torres! Planifica su construcción temprano.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">⚒️</span>
+                <h4 data-i18n="guideBuild2Title">⚒️ Herrería (Tecnología Nivel 2)</h4>
+              </div>
+              <p data-i18n="guideBuild2Desc">Estructura tecnológica fundamental. Tus defensores no pueden subir a Nivel 2 hasta que investigues su tecnología específica en una Herrería.</p>
+              <div class="guide-step-tip" data-i18n="guideBuild2Tip">
+                💡 Haz clic en la Herrería para abrir su panel de investigación científica.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">⭐</span>
+                <h4 data-i18n="guideBuild3Title">⭐ Herrería Nv.2 (1 Permiso Nivel 3)</h4>
+              </div>
+              <p data-i18n="guideBuild3Desc">Mejora tu Herrería a Nivel 2 para forjar tecnologías de Élite. ¡Cada Herrería otorga ÚNICAMENTE 1 permiso por tecnología para subir 1 torre a Nivel 3! Construye nuevas Herrerías para obtener más permisos.</p>
+              <div class="guide-step-tip" data-i18n="guideBuild3Tip">
+                💡 Regla estricta: 1 permiso por torre por Herrería Nivel 2.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Defenders & Ultimates -->
+        <div id="guide-tab-defenders" class="guide-tab-panel hidden">
+          <div class="guide-steps-grid grid-4-cols">
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🍅</span>
+                <h4 data-i18n="guideDef1Title">🍅 Pomodoro (Planta)</h4>
+              </div>
+              <p data-i18n="guideDef1Desc">Cadencia rápida que inocula veneno acumulativo continuo. En Nivel 3 desata la Bomba de Esporas Cáusticas con bombardeo triple en área.</p>
+              <div class="guide-step-tip" data-i18n="guideDef1Tip">
+                💡 Ideal cerca del inicio del sendero para envenenar a los enemigos.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🦊</span>
+                <h4 data-i18n="guideDef2Title">🦊 Kotaro (Bestia)</h4>
+              </div>
+              <p data-i18n="guideDef2Desc">Luchador cuerpo a cuerpo con altísimo daño crítico contra objetivos duros. En Nivel 3 desata el Doble Filo Vorpal con un tajo giratorio de 360°.</p>
+              <div class="guide-step-tip" data-i18n="guideDef2Tip">
+                💡 Colócalo en curvas cerradas para golpear quimeras por ambos lados.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🌊</span>
+                <h4 data-i18n="guideDef3Title">🌊 Bing (Aqua)</h4>
+              </div>
+              <p data-i18n="guideDef3Desc">Dispara salpicaduras acuáticas en área que ralentizan a los enemigos. En Nivel 3 libera un Maremoto Torrencial que daña y empuja hacia atrás.</p>
+              <div class="guide-step-tip" data-i18n="guideDef3Tip">
+                💡 Excelente combinación tras Pomodoro para ralentizar enemigos.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🪶</span>
+                <h4 data-i18n="guideDef4Title">🪶 Tripp (Pájaro)</h4>
+              </div>
+              <p data-i18n="guideDef4Desc">Francotirador de larguísimo alcance especializado en eliminar amenazas a distancia. En Nivel 3 dispara un Calibre Divino Perforante en línea recta.</p>
+              <div class="guide-step-tip" data-i18n="guideDef4Tip">
+                💡 Sitúalo en posiciones centrales elevadas para cubrir múltiples tramos.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Runes & Tactics -->
+        <div id="guide-tab-tactics" class="guide-tab-panel hidden">
+          <div class="guide-steps-grid">
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🔮</span>
+                <h4 data-i18n="guideTac1Title">🔮 Runas Místicas</h4>
+              </div>
+              <p data-i18n="guideTac1Desc">Al completar ciertas oleadas clave, el santuario rúnico te otorgará 3 cartas de bendiciones mágicas permanentes (daño extra, velocidad, SLP o descuentos).</p>
+              <div class="guide-step-tip" data-i18n="guideTac1Tip">
+                💡 Tus runas activas se muestran en la barra superior del HUD.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">☄️</span>
+                <h4 data-i18n="guideTac2Title">☄️ Hechizo: Lluvia de Espinas</h4>
+              </div>
+              <p data-i18n="guideTac2Desc">Pulsa [ESPACIO] o el botón de hechizo flotante para desatar un bombardeo devastador en cualquier punto del camino cuando las defensas se vean superadas.</p>
+              <div class="guide-step-tip" data-i18n="guideTac2Tip">
+                💡 Tiene tiempo de recarga; resérvalo para oleadas masivas.
+              </div>
+            </div>
+            <div class="guide-step-card">
+              <div class="guide-step-header">
+                <span class="guide-step-badge">🎯</span>
+                <h4 data-i18n="guideTac3Title">🎯 Inspector y Prioridad</h4>
+              </div>
+              <p data-i18n="guideTac3Desc">Haz clic en cualquier torre para consultar sus atributos, subir de nivel o ajustar su prioridad de disparo: Primero, Más Fuerte, Más Débil o Más Veloz.</p>
+              <div class="guide-step-tip" data-i18n="guideTac3Tip">
+                💡 Configura a Tripp en "Fuerte" para priorizar tanques y a Pomodoro en "Primero".
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="guide-actions-row">
+          <button id="guide-practice-btn" class="btn-game-practice" data-i18n="guidePracticeBtn">
+            ▶️ Practicar Tutorial Guiado en 3D
+          </button>
+          <button id="guide-close-btn" class="btn-game-close" data-i18n="guideCloseBtn">
+            ⚔️ ¡Listo! Volver a Batalla
+          </button>
+        </div>
       </div>
     </div>
 
@@ -193,10 +1185,13 @@
         <div class="tutorial-card-header">
           <div class="tutorial-guide-avatar">🍅</div>
           <div class="tutorial-guide-meta">
-            <span class="tutorial-guide-name">Pomodoro el Guía</span>
+            <span class="tutorial-guide-name" data-i18n="tutGuideName">Pomodoro el Guía</span>
             <span id="tutorial-step-tag" class="tutorial-step-tag">Paso 1 de 6</span>
           </div>
-          <button id="tutorial-skip-btn" class="tutorial-skip-btn" title="Saltar tutorial">Saltar ⏭️</button>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button id="tutorial-skip-btn" class="tutorial-skip-btn" title="Saltar tutorial" data-i18n="tutSkipBtn">Saltar ⏭️</button>
+            <button id="tutorial-close-btn" class="btn-close" style="width: 28px; height: 28px; font-size: 0.9rem;" title="Cerrar tutorial">✕</button>
+          </div>
         </div>
 
         <h3 id="tutorial-title" class="tutorial-title">¡Bienvenida a Lunacia!</h3>
@@ -207,9 +1202,22 @@
         <div class="tutorial-footer">
           <div id="tutorial-dots" class="tutorial-dots"></div>
           <div class="tutorial-nav-buttons">
-            <button id="tutorial-prev-btn" class="btn-tut-nav">⬅️ Anterior</button>
-            <button id="tutorial-next-btn" class="btn-tut-nav primary">Siguiente ➡️</button>
+            <button id="tutorial-prev-btn" class="btn-tut-nav" data-i18n="tutPrevBtn">⬅️ Anterior</button>
+            <button id="tutorial-next-btn" class="btn-tut-nav primary" data-i18n="tutNextBtn">Siguiente ➡️</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Surrender Confirmation Modal -->
+    <div id="surrender-modal" class="screen-overlay hidden">
+      <div class="screen-card surrender-card">
+        <div class="game-badge" data-i18n="surrenderBadge">CONFIRMACIÓN</div>
+        <h2 class="title" data-i18n="surrenderTitle">¿Rendirse?</h2>
+        <p class="description" data-i18n="surrenderMsg">¿Estás seguro de que deseas abandonar la batalla y volver a la pantalla de inicio? Se perderá el progreso de esta partida.</p>
+        <div class="surrender-actions-row">
+          <button id="confirm-surrender-btn" class="btn-primary btn-surrender-confirm" data-i18n="surrenderConfirm">🏳️ Sí, Rendirme</button>
+          <button id="cancel-surrender-btn" class="btn-secondary btn-surrender-cancel" data-i18n="surrenderCancel">⚔️ Continuar Jugando</button>
         </div>
       </div>
     </div>
@@ -217,11 +1225,178 @@
     <!-- Roguelite Rune Draft Modal (Shows after waves 3 and 7) -->
     <div id="rune-modal" class="screen-overlay hidden">
       <div class="screen-card rune-card-modal">
-        <div class="game-badge">BENDICIÓN ANCESTRAL</div>
-        <h2 class="title">Runa Mística de Lunacia</h2>
-        <p class="subtitle">Elige 1 bendición para potenciar tu estrategia 🌟</p>
+        <div class="game-badge" data-i18n="runeBadge">BENDICIÓN ANCESTRAL</div>
+        <h2 class="title" data-i18n="runeTitle">Runa Mística de Lunacia</h2>
+        <p class="subtitle" data-i18n="runeSubtitle">Elige 1 bendición para potenciar tu estrategia 🌟</p>
         <div id="rune-options-row" class="rune-options-row">
           <!-- Dynamically injected with 3 cards -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Axie Roster & Ronin Loadout Modal: Under Construction Teaser -->
+    <div id="roster-modal" class="screen-overlay hidden">
+      <div class="screen-card roster-card-modal teaser-modal-card">
+        <div class="settings-header">
+          <div class="game-badge">AXIE CORE • ROADMAP WEB3 v1.1</div>
+          <h2 class="title">🏗️ Cuartel de Defensores (En Construcción)</h2>
+          <p class="subtitle">Integración on-chain con Ronin Wallet y Axies NFT propios para la versión v1.1.</p>
+          <button id="close-roster-x-btn" class="btn-close">✕</button>
+        </div>
+
+        <div class="roster-body teaser-modal-body">
+          <!-- Hero Teaser Card -->
+          <div class="teaser-hero-box">
+            <div class="teaser-icon-glow">🦊⚡</div>
+            <div class="teaser-hero-content">
+              <h3>¡Pronto podrás comandar tus propios Axies NFT en 3D!</h3>
+              <p>
+                Estamos perfeccionando la sincronización en tiempo real con <strong>Ronin Wallet</strong> y los contratos <strong>ERC-721</strong> de Sky Mavis para que puedas desplegar tu colección personal con sprites 2.5D de alta fidelidad y auras místicas, manteniendo el combate 100% fluido y libre de latencia.
+              </p>
+            </div>
+          </div>
+
+          <!-- Active Guardians Showcase -->
+          <div class="roster-section-title">
+            <span>🛡️ Defensores Starters Disponibles en Esta Versión Demo</span>
+            <span class="roster-count-badge">4 Guardianes Listos</span>
+          </div>
+
+          <div class="teaser-starters-grid">
+            <!-- Starter 1: Pomodoro -->
+            <div class="teaser-starter-card">
+              <div class="starter-avatar-wrap class-plant-bg">
+                <img src="./assets/mascots/pomodoro_avatar.png" class="starter-avatar-img" alt="Pomodoro" />
+              </div>
+              <div class="teaser-starter-info">
+                <span class="slot-badge class-plant">🌿 Slot 1 (Planta)</span>
+                <strong>Pomodoro</strong>
+                <p>Torre de veneno y ralentización en área con espinas.</p>
+              </div>
+            </div>
+
+            <!-- Starter 2: Kotaro -->
+            <div class="teaser-starter-card">
+              <div class="starter-avatar-wrap class-beast-bg">
+                <img src="./assets/mascots/kotaro_avatar.png" class="starter-avatar-img" alt="Kotaro" />
+              </div>
+              <div class="teaser-starter-info">
+                <span class="slot-badge class-beast">🦊 Slot 2 (Bestia)</span>
+                <strong>Kotaro</strong>
+                <p>Ataque ágil, proyectiles de garras y daño crítico masivo.</p>
+              </div>
+            </div>
+
+            <!-- Starter 3: Bing -->
+            <div class="teaser-starter-card">
+              <div class="starter-avatar-wrap class-aqua-bg">
+                <img src="./assets/mascots/bing_avatar.png" class="starter-avatar-img" alt="Bing" />
+              </div>
+              <div class="teaser-starter-info">
+                <span class="slot-badge class-aqua">💧 Slot 3 (Aqua)</span>
+                <strong>Bing</strong>
+                <p>Burbujas con salpicadura en área y control de quimeras.</p>
+              </div>
+            </div>
+
+            <!-- Starter 4: Tripp -->
+            <div class="teaser-starter-card">
+              <div class="starter-avatar-wrap class-bird-bg">
+                <img src="./assets/mascots/tripp_avatar.png" class="starter-avatar-img" alt="Tripp" />
+              </div>
+              <div class="teaser-starter-info">
+                <span class="slot-badge class-bird">🪶 Slot 4 (Pájaro)</span>
+                <strong>Tripp</strong>
+                <p>Francotirador de largo alcance contra quimeras veloces.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Roadmap feature highlights -->
+          <div class="teaser-features-row">
+            <div class="teaser-feat-pill">
+              <span>🔗</span> Conexión Ronin Wallet (Web & Mobile)
+            </div>
+            <div class="teaser-feat-pill">
+              <span>🌟</span> Bonos Sinergia de Clase (+15% Daño)
+            </div>
+            <div class="teaser-feat-pill">
+              <span>🔮</span> Auras Cósmicas para Axies Mystic & Origin
+            </div>
+          </div>
+        </div>
+
+        <div class="roster-footer" style="justify-content: center;">
+          <button id="save-roster-btn" class="btn-primary" style="padding: 12px 36px; font-size: 0.95rem; font-weight: 800;">
+            ⚔️ ¡Listo! Defender Lunacia con los Starters
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Axie Detail & Tactical Inspector Modal -->
+    <div id="axie-detail-modal" class="screen-overlay hidden">
+      <div class="screen-card axie-detail-card">
+        <div class="axie-detail-header">
+          <div class="axie-detail-badges">
+            <span id="detail-class-badge" class="slot-badge class-plant">🌿 Planta</span>
+            <span id="detail-special-badge" class="axie-special-tag hidden">Origin</span>
+          </div>
+          <button id="close-axie-detail-btn" class="btn-close">✕</button>
+        </div>
+
+        <div class="axie-detail-hero">
+          <div class="axie-detail-thumb-glow" id="detail-thumb-glow">
+            <img id="detail-axie-img" src="" class="detail-axie-img" alt="Axie" />
+          </div>
+          <div class="axie-detail-title-wrap">
+            <h2 id="detail-axie-name" class="detail-axie-name">Sprout King</h2>
+            <div id="detail-axie-id" class="detail-axie-id">#482910</div>
+            <div id="detail-axie-source" class="detail-axie-source">Billetera Ronin</div>
+          </div>
+        </div>
+
+        <!-- Tactical Defense Synergy Box -->
+        <div class="axie-synergy-box">
+          <div class="synergy-header">
+            <span class="synergy-icon">⚡</span>
+            <strong>Bono Táctico en Defensa de Lunacia:</strong>
+          </div>
+          <div id="detail-synergy-desc" class="synergy-desc">
+            +25% Duración de Veneno y +15% Ralentización en área a las quimeras invasoras.
+          </div>
+          <div id="detail-special-synergy" class="special-synergy-desc hidden">
+            🌟 <strong>Bono Celestial:</strong> +10% de daño cósmico a todas las defensas.
+          </div>
+        </div>
+
+        <!-- Slot Assignment Action Panel -->
+        <div class="detail-assign-section">
+          <span class="detail-assign-title">🛡️ Asignar como Defensor a un Slot:</span>
+          <div class="detail-slots-buttons">
+            <button class="btn-detail-slot" data-slot="pomodoro">
+              <span class="slot-badge class-plant">🌿 Slot 1</span>
+              <small>Torre Planta (Veneno)</small>
+            </button>
+            <button class="btn-detail-slot" data-slot="kotaro">
+              <span class="slot-badge class-beast">🦊 Slot 2</span>
+              <small>Torre Bestia (Crítico)</small>
+            </button>
+            <button class="btn-detail-slot" data-slot="bing">
+              <span class="slot-badge class-aqua">💧 Slot 3</span>
+              <small>Torre Aqua (Área)</small>
+            </button>
+            <button class="btn-detail-slot" data-slot="tripp">
+              <span class="slot-badge class-bird">🪶 Slot 4</span>
+              <small>Torre Pájaro (Largo Alcance)</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-footer-links">
+          <a id="detail-explorer-link" href="#" target="_blank" rel="noopener noreferrer" class="btn-explorer-link">
+            🔍 Ver en Marketplace oficial de App Axie ↗
+          </a>
         </div>
       </div>
     </div>
@@ -235,16 +1410,19 @@
 
         <div class="results-stats">
           <div class="stat-row">
-            <span>Oleadas superadas:</span>
+            <span data-i18n="resultClearedWaves">Oleadas superadas:</span>
             <strong id="final-wave">10 / 10</strong>
           </div>
           <div class="stat-row">
-            <span>Vidas restantes:</span>
+            <span data-i18n="resultRemainingLives">Vidas restantes:</span>
             <strong id="final-lives">20 / 20</strong>
           </div>
         </div>
 
-        <button id="restart-game-btn" class="btn-primary">JUGAR OTRA VEZ</button>
+        <div class="result-actions-row">
+          <button id="restart-game-btn" class="btn-primary" data-i18n="resultPlayAgain">JUGAR OTRA VEZ</button>
+          <button id="result-menu-btn" class="btn-secondary btn-return-menu" data-i18n="menuReturnBtn">🏠 Menú Principal</button>
+        </div>
       </div>
     </div>
   </div>

@@ -1,12 +1,67 @@
 import * as THREE from 'three';
 
 export type TowerType = 'pomodoro' | 'kotaro' | 'bing' | 'tripp';
+export type BuildingType = 'hemp_hut' | 'hummer_hut';
+export type PlaceableType = TowerType | BuildingType;
+
+export interface TechConfig {
+  id: string;
+  towerType: TowerType;
+  targetLevel: number;
+  reqBuildingLevel?: number;
+  nameKey: string;
+  descKey: string;
+  cost: number;
+  researchTime: number; // in seconds
+  icon: string;
+}
+
+export interface BuildingConfig {
+  type: BuildingType;
+  name: string;
+  categoryLabel: string;
+  icon: string;
+  imageFile: string;
+  upgradeImageFile?: string;
+  cost: number;
+  upgradeCost?: number;
+  upgradeTime?: number;
+  buildTime: number;
+  populationBonus: number;
+  description: string;
+  specialTrait: string;
+}
+
+export interface BuildingInstance {
+  id: string;
+  type: BuildingType;
+  level: number;
+  position: THREE.Vector3;
+  mesh: THREE.Group;
+  populationBonus: number;
+  isUnderConstruction: boolean;
+  constructionTimer: number;
+  constructionDuration: number;
+  isUpgrading?: boolean;
+  upgradeTimer?: number;
+  upgradeDuration?: number;
+  currentResearch?: {
+    techId: string;
+    timer: number;
+    duration: number;
+  };
+  progressBarGroup?: THREE.Group;
+  progressBarFill?: THREE.Mesh;
+  statusBadgeEl?: HTMLElement;
+  researchedTechs?: string[];
+}
 
 export interface TowerConfig {
   type: TowerType;
   name: string;
   classLabel: string;
   icon: string;
+  avatarImage: string;
   modelFile: string;
   cost: number;
   upgradeCost: number;
@@ -38,6 +93,13 @@ export interface TowerInstance {
   targetingMode: TargetingMode;
   ultimateCharge: number;
   ultimateMax: number;
+
+  // Custom Axie NFT & Visual Mode State
+  customAxie?: import('./axie-nft').AxieNFT;
+  billboardMesh?: THREE.Mesh;
+  hologramGroup?: THREE.Group;
+  visualMode?: import('./axie-nft').VisualMode;
+  attackAnimTimer?: number;
 
   // Construction & Upgrade Cooldown State
   isUnderConstruction: boolean;
@@ -74,12 +136,6 @@ export interface GroundHazard {
   tickTimer: number;
 }
 
-export interface ActiveSynergies {
-  plantAqua: boolean;
-  beastBird: boolean;
-  fullLunacia: boolean;
-}
-
 export type EnemyType = 'scout' | 'warrior' | 'armored' | 'toxic' | 'boss';
 
 export interface EnemyConfig {
@@ -97,6 +153,8 @@ export interface EnemyConfig {
   armorReduction?: number;
   regenRate?: number;
   hasSprint?: boolean;
+  axieId?: string;
+  axieImageUrl?: string;
 }
 
 export interface TDEnemy {
@@ -119,6 +177,10 @@ export interface TDEnemy {
   poisonDmg: number;
   healthBarFill: THREE.Mesh;
   healthBarGroup: THREE.Group;
+  axieSpriteMesh?: THREE.Mesh;
+  animTime?: number;
+  facingYaw?: number;
+  facingFlip?: number;
 
   // Personality Traits
   isImmuneSlow?: boolean;
@@ -164,4 +226,17 @@ export interface WaveGroup {
 export interface WaveConfig {
   waveNumber: number;
   groups: WaveGroup[];
+}
+
+export interface GridCoord {
+  col: number;
+  row: number;
+}
+
+export interface PathArchetype {
+  id: string;
+  name: string;
+  description: string;
+  gridTurns: GridCoord[];
+  baseWaypoints?: THREE.Vector3[];
 }

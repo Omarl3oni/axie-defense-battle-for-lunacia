@@ -1,7 +1,7 @@
 {
-  "name": "axie-survivors-lunacia-outbreak",
+  "name": "axie-defense-battle-for-lunacia",
   "version": "0.1.0",
-  "description": "Axie Survivors: Lunacia Outbreak - A 3D Web Roguelike for Axie Vibeathon",
+  "description": "Axie Defense: Battle for Lunacia - A 3D Web Roguelike/Tower Defense for Axie Vibeathon",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "pixi-spine": "^4.0.3",
+    "pixi.js": "^7.2.4",
     "three": "^0.185.1"
   },
   "devDependencies": {
